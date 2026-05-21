@@ -109,8 +109,12 @@ def parse_xml(xml_path: str) -> tuple[dict, list[dict]]:
         failure = tc.find("failure")
         if failure is not None:
             case["failure_type"] = failure.get("type", "")
-            msg = failure.get("message", "")
-            case["failure_message"] = (msg[:2000] if msg else "") or None
+            msg = failure.get("message", "") or ""
+            reason = ""
+            if "Reason:" in msg:
+                after_reason = msg.split("Reason:", 1)[1].strip()
+                reason = after_reason.split("\n")[0].strip()
+            case["failure_message"] = reason or msg[:300]
         test_cases.append(case)
 
     return execution, test_cases
