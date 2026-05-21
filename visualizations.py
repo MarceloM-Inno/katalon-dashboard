@@ -90,16 +90,17 @@ def render_suite_distribution(exec_df: pd.DataFrame):
     latest["pass_count"] = latest["total_tests"] - latest["total_failures"] - latest["total_errors"]
 
     fig = go.Figure(data=[
-        go.Bar(name="Passados", y=latest["suite_name"], x=latest["pass_count"], orientation="h"),
-        go.Bar(name="Falhas", y=latest["suite_name"], x=latest["total_failures"], orientation="h"),
-        go.Bar(name="Erros", y=latest["suite_name"], x=latest["total_errors"], orientation="h"),
+        go.Bar(name="Passados", x=latest["suite_name"], y=latest["pass_count"]),
+        go.Bar(name="Falhas", x=latest["suite_name"], y=latest["total_failures"]),
+        go.Bar(name="Erros", x=latest["suite_name"], y=latest["total_errors"]),
     ])
     fig.update_layout(
         title="Última Execução por Suite",
-        barmode="stack",
+        barmode="group",
         height=350,
-        xaxis_title="Quantidade",
-        yaxis_title="",
+        xaxis_title="Suite",
+        yaxis_title="Quantidade",
+        legend_title="Status",
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -150,7 +151,4 @@ def render_detail_table(merged_df: pd.DataFrame):
         display,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Mensagem": st.column_config.TextColumn(width="large"),
-        },
     )
