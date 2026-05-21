@@ -1,0 +1,11 @@
+.env
+.streamlit/secrets.toml
+scripts/.env
+scripts/processed_state.json
+__pycache__/
+*.pyc
+*.pyo
+.streamlit/logs/
+streamlit.log
+streamlit.err
+.DS_Store
