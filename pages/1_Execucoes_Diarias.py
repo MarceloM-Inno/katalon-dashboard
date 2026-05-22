@@ -17,14 +17,17 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     st.stop()
 
 
+projeto = st.session_state.get("projeto", "")
+
+
 @st.cache_data(ttl=60, show_spinner="Carregando dados...")
-def get_data():
-    return load_executions(), load_cases()
+def get_data(projeto):
+    return load_executions(projeto), load_cases(projeto)
 
 
-exec_df, cases_df = get_data()
+exec_df, cases_df = get_data(projeto)
 
-st.title(" Execuções Diárias por Suite")
+st.title(f" Execuções Diárias - {projeto}")
 
 if exec_df.empty:
     st.warning("Nenhum dado encontrado.")

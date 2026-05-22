@@ -14,17 +14,23 @@ def get_client():
     return _client
 
 
-def load_executions() -> pd.DataFrame:
+def load_executions(projeto: str | None = None) -> pd.DataFrame:
     client = get_client()
-    data = client.table(TABLE_EXECUTIONS).select("*").order("execution_date").execute()
+    query = client.table(TABLE_EXECUTIONS).select("*").order("execution_date")
+    if projeto:
+        query = query.eq("project", projeto)
+    data = query.execute()
     df = pd.DataFrame(data.data)
     if not df.empty and "execution_date" in df.columns:
         df["execution_date"] = pd.to_datetime(df["execution_date"])
     return df
 
 
-def load_cases() -> pd.DataFrame:
+def load_cases(projeto: str | None = None) -> pd.DataFrame:
     client = get_client()
-    data = client.table(TABLE_CASES).select("*").order("test_name").execute()
+    query = client.table(TABLE_CASES).select("*").order("test_name")
+    if projeto:
+        query = query.eq("project", projeto)
+    data = query.execute()
     df = pd.DataFrame(data.data)
     return df

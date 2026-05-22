@@ -13,6 +13,7 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 REPORT_PATH = os.getenv("REPORT_PATH", r"E:\Pipeline-Report")
+PROJECT_NAME = os.getenv("PROJECT_NAME", "")
 
 HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -83,6 +84,7 @@ def parse_xml(xml_path: str) -> tuple[dict, list[dict]]:
     execution = {
         "suite_name": suite_name,
         "execution_date": parse_timestamp(timestamp),
+        "project": PROJECT_NAME,
         "total_tests": total_tests,
         "total_failures": total_failures,
         "total_errors": total_errors,
@@ -101,6 +103,7 @@ def parse_xml(xml_path: str) -> tuple[dict, list[dict]]:
         case = {
             "test_name": tc.get("name", ""),
             "duration_sec": float(tc.get("time", 0)),
+            "project": PROJECT_NAME,
             "status": tc.get("status", "UNKNOWN"),
             "failure_type": None,
             "failure_message": None,
@@ -152,6 +155,10 @@ def send_cases(execution_id: int, cases: list[dict]):
 def main():
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("ERRO: SUPABASE_URL e SUPABASE_KEY devem estar definidos no .env")
+        sys.exit(1)
+
+    if not PROJECT_NAME:
+        print("ERRO: PROJECT_NAME deve estar definido no .env (ONEY ou BNPL)")
         sys.exit(1)
 
     report_path = Path(REPORT_PATH)

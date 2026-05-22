@@ -29,17 +29,20 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     st.stop()
 
 
+projeto = st.session_state.get("projeto", "")
+
+
 @st.cache_data(ttl=60, show_spinner="Carregando dados...")
-def get_data():
-    exec_df = load_executions()
-    cases_df = load_cases()
+def get_data(projeto):
+    exec_df = load_executions(projeto)
+    cases_df = load_cases(projeto)
     return exec_df, cases_df
 
 
-st.title(" Dashboard de Testes - Katalon")
+st.title(f" Dashboard de Testes - {projeto}")
 st.caption(f"Última atualização: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
-exec_df, cases_df = get_data()
+exec_df, cases_df = get_data(projeto)
 
 st.sidebar.header("Filtros")
 

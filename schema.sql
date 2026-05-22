@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS test_executions (
     id BIGSERIAL PRIMARY KEY,
     suite_name TEXT NOT NULL,
     execution_date TIMESTAMPTZ NOT NULL,
+    project TEXT NOT NULL DEFAULT '',
     total_tests INTEGER NOT NULL DEFAULT 0,
     total_failures INTEGER NOT NULL DEFAULT 0,
     total_errors INTEGER NOT NULL DEFAULT 0,
@@ -14,12 +15,13 @@ CREATE TABLE IF NOT EXISTS test_executions (
     user_full_name TEXT,
     project_name TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(suite_name, execution_date)
+    UNIQUE(suite_name, execution_date, project)
 );
 
 CREATE TABLE IF NOT EXISTS test_cases (
     id BIGSERIAL PRIMARY KEY,
     execution_id BIGINT NOT NULL REFERENCES test_executions(id) ON DELETE CASCADE,
+    project TEXT NOT NULL DEFAULT '',
     test_name TEXT NOT NULL,
     duration_sec DOUBLE PRECISION DEFAULT 0,
     status TEXT NOT NULL,
@@ -32,3 +34,5 @@ CREATE INDEX IF NOT EXISTS idx_cases_execution_id ON test_cases(execution_id);
 CREATE INDEX IF NOT EXISTS idx_executions_date ON test_executions(execution_date);
 CREATE INDEX IF NOT EXISTS idx_cases_status ON test_cases(status);
 CREATE INDEX IF NOT EXISTS idx_executions_suite ON test_executions(suite_name);
+CREATE INDEX IF NOT EXISTS idx_executions_project ON test_executions(project);
+CREATE INDEX IF NOT EXISTS idx_cases_project ON test_cases(project);
