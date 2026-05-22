@@ -88,11 +88,27 @@ def render_suite_distribution(exec_df: pd.DataFrame):
         .reset_index()
     )
     latest["pass_count"] = latest["total_tests"] - latest["total_failures"] - latest["total_errors"]
+    latest["total"] = latest["total_tests"]
+    latest["pass_pct"] = (latest["pass_count"] / latest["total"] * 100).round(1)
+    latest["fail_pct"] = (latest["total_failures"] / latest["total"] * 100).round(1)
+    latest["error_pct"] = (latest["total_errors"] / latest["total"] * 100).round(1)
 
     fig = go.Figure(data=[
-        go.Bar(name="Passados", x=latest["suite_name"], y=latest["pass_count"]),
-        go.Bar(name="Falhas", x=latest["suite_name"], y=latest["total_failures"]),
-        go.Bar(name="Erros", x=latest["suite_name"], y=latest["total_errors"]),
+        go.Bar(
+            name="Passados", x=latest["suite_name"], y=latest["pass_count"],
+            text=latest["pass_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
+            textposition="inside", textfont_color="white",
+        ),
+        go.Bar(
+            name="Falhas", x=latest["suite_name"], y=latest["total_failures"],
+            text=latest["fail_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
+            textposition="inside", textfont_color="white",
+        ),
+        go.Bar(
+            name="Erros", x=latest["suite_name"], y=latest["total_errors"],
+            text=latest["error_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
+            textposition="inside", textfont_color="white",
+        ),
     ])
     fig.update_layout(
         title="Última Execução por Suite",
