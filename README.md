@@ -35,7 +35,7 @@ Dashboard Streamlit para visualização de resultados de testes automatizados do
 
 ```
 katalon-dashboard/
-├── app.py                      # Dashboard principal
+├── Graficos.py                 # Dashboard principal
 ├── config.py                   # Configuração (variáveis de ambiente)
 ├── db.py                       # Conexão com Supabase
 ├── visualizations.py           # Funções de renderização dos gráficos
