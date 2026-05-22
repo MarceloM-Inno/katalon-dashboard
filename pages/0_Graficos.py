@@ -26,12 +26,6 @@ from visualizations import (
 import pandas as pd
 from datetime import datetime, timedelta
 
-st.set_page_config(
-    page_title="Dashboard de Testes - Katalon",
-    page_icon="",
-    layout="wide",
-)
-
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error(
         "Configure as variáveis SUPABASE_URL e SUPABASE_KEY "

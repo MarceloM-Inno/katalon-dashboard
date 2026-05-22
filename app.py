@@ -7,13 +7,15 @@ st.set_page_config(
 )
 
 graficos = st.Page(
-    "Graficos.py",
+    "pages/0_Graficos.py",
     title="Gráficos",
+    icon="",
 )
 
 execucoes = st.Page(
     "pages/1_Execucoes_Diarias.py",
     title="Execuções Diárias",
+    icon="",
 )
 
 pg = st.navigation([graficos, execucoes])
