@@ -1,2 +1,2 @@
-[client]
-showSidebarNavigation = false
+# Navigation control
+# showSidebarNavigation is removed so st.navigation() works

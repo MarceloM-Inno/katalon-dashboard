@@ -3,7 +3,6 @@ import sys
 import json
 import glob
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from pathlib import Path
 
 import requests

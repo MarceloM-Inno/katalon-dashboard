@@ -1,8 +1,4 @@
 import os
-
-os.environ.setdefault("SUPABASE_URL", "")
-os.environ.setdefault("SUPABASE_KEY", "")
-
 import streamlit as st
 
 st_secrets_valid = True
@@ -23,7 +19,6 @@ from visualizations import (
     render_status_pie,
     render_detail_table,
 )
-import pandas as pd
 from datetime import datetime, timedelta
 
 if not SUPABASE_URL or not SUPABASE_KEY:

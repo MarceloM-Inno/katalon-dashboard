@@ -1,8 +1,4 @@
 import os
-
-os.environ.setdefault("SUPABASE_URL", "")
-os.environ.setdefault("SUPABASE_KEY", "")
-
 import streamlit as st
 
 try:
@@ -14,11 +10,7 @@ except Exception:
 
 from config import SUPABASE_URL, SUPABASE_KEY
 from db import load_executions, load_cases
-import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
-
-st.set_page_config(page_title="Execuções Diárias", page_icon="", layout="wide")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("Configure SUPABASE_URL e SUPABASE_KEY nos secrets.")
