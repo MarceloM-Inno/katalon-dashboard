@@ -18,6 +18,8 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 
 projeto = st.session_state.get("projeto", "")
+if not projeto:
+    st.switch_page("pages/2_Inicio.py")
 
 
 @st.cache_data(ttl=60, show_spinner="Carregando dados...")
