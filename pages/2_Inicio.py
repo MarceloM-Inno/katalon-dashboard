@@ -11,19 +11,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-projeto_atual = st.session_state.get("projeto", "")
-
-if projeto_atual:
-    st.info(f"Projeto ativo: **{projeto_atual}**")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button(" Ir para Gráficos", use_container_width=True):
-            st.switch_page("pages/0_Graficos.py")
-    with col2:
-        if st.button(" Ir para Execuções Diárias", use_container_width=True):
-            st.switch_page("pages/1_Execucoes_Diarias.py")
-    st.markdown("---")
-
 st.markdown("### Selecione um projeto:")
 
 cols = st.columns(2)
