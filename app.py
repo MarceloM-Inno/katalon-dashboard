@@ -68,19 +68,18 @@ date_range = st.sidebar.date_input(
     max_value=max_date,
 )
 
-suites = sorted(exec_df["suite_name"].unique()) if not exec_df.empty else []
-selected_suites = st.sidebar.multiselect(
-    "Suites",
-    options=suites,
-    default=suites,
-)
+st.sidebar.markdown("**Suites**")
+selected_suites = []
+if not exec_df.empty:
+    for suite in sorted(exec_df["suite_name"].unique()):
+        if st.sidebar.checkbox(suite, value=True):
+            selected_suites.append(suite)
 
-statuses = ["PASSED", "FAILED", "ERROR", "SKIPPED"]
-selected_statuses = st.sidebar.multiselect(
-    "Status",
-    options=statuses,
-    default=statuses,
-)
+st.sidebar.markdown("**Status**")
+selected_statuses = []
+for status in ["PASSED", "FAILED", "ERROR", "SKIPPED"]:
+    if st.sidebar.checkbox(status, value=True):
+        selected_statuses.append(status)
 
 if st.sidebar.button(" Atualizar Agora"):
     st.cache_data.clear()
