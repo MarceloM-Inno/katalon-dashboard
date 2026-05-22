@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+SUITE_COLORS = px.colors.qualitative.Set2
+
 
 def render_kpi_cards(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
     total_exec = len(exec_df)
@@ -30,7 +32,7 @@ def render_trend_chart(exec_df: pd.DataFrame):
     df["pass_count"] = df["total_tests"] - df["total_failures"] - df["total_errors"]
 
     fig = go.Figure()
-    for suite in sorted(df["suite_name"].unique()):
+    for i, suite in enumerate(sorted(df["suite_name"].unique())):
         suite_df = df[df["suite_name"] == suite].sort_values("date")
         fig.add_trace(go.Scatter(
             x=suite_df["date"],
@@ -38,6 +40,7 @@ def render_trend_chart(exec_df: pd.DataFrame):
             mode="lines+markers",
             name=suite,
             stackgroup=None,
+            marker_color=SUITE_COLORS[i % len(SUITE_COLORS)],
         ))
 
     fig.update_layout(
@@ -58,13 +61,14 @@ def render_failure_trend(exec_df: pd.DataFrame):
     df["date"] = df["execution_date"].dt.date
 
     fig = go.Figure()
-    for suite in sorted(df["suite_name"].unique()):
+    for i, suite in enumerate(sorted(df["suite_name"].unique())):
         suite_df = df[df["suite_name"] == suite].sort_values("date")
         fig.add_trace(go.Scatter(
             x=suite_df["date"],
             y=suite_df["total_failures"],
             mode="lines+markers",
             name=suite,
+            marker_color=SUITE_COLORS[i % len(SUITE_COLORS)],
         ))
 
     fig.update_layout(
@@ -98,16 +102,19 @@ def render_suite_distribution(exec_df: pd.DataFrame):
             name="Passados", x=latest["suite_name"], y=latest["pass_count"],
             text=latest["pass_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
+            marker_color="#2ecc71",
         ),
         go.Bar(
             name="Falhas", x=latest["suite_name"], y=latest["total_failures"],
             text=latest["fail_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
+            marker_color="#e74c3c",
         ),
         go.Bar(
             name="Erros", x=latest["suite_name"], y=latest["total_errors"],
             text=latest["error_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
+            marker_color="#f39c12",
         ),
     ])
     fig.update_layout(

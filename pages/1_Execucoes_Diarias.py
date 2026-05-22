@@ -112,17 +112,20 @@ for suite in selected_suites:
         go.Bar(
             name="Passados", x=daily["date"].astype(str), y=daily["pass_count"],
             text=daily["pass_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
-            textposition="inside", marker_color="#2ecc71",
+            textposition="inside", textfont_color="white",
+            marker_color="#2ecc71",
         ),
         go.Bar(
             name="Falhas", x=daily["date"].astype(str), y=daily["fail_count"],
             text=daily["fail_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
-            textposition="inside", marker_color="#e74c3c",
+            textposition="inside", textfont_color="white",
+            marker_color="#e74c3c",
         ),
         go.Bar(
             name="Erros", x=daily["date"].astype(str), y=daily["error_count"],
             text=daily["error_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
-            textposition="inside", marker_color="#f1c40f",
+            textposition="inside", textfont_color="white",
+            marker_color="#f39c12",
         ),
     ])
     fig.update_layout(
