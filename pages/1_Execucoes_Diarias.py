@@ -11,6 +11,7 @@ except Exception:
 from config import SUPABASE_URL, SUPABASE_KEY
 from db import load_executions, load_cases
 import plotly.graph_objects as go
+from datetime import date, timedelta
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("Configure SUPABASE_URL e SUPABASE_KEY nos secrets.")
@@ -40,9 +41,13 @@ st.sidebar.header("Filtros")
 min_date = exec_df["execution_date"].min().date()
 max_date = exec_df["execution_date"].max().date()
 
+hoje = date.today()
+segunda = hoje - timedelta(days=hoje.weekday())
+padrao = (segunda, hoje)
+
 date_range = st.sidebar.date_input(
     "Período",
-    value=(min_date, max_date),
+    value=padrao,
     min_value=min_date,
     max_value=max_date,
 )

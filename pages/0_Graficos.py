@@ -55,9 +55,13 @@ else:
     min_date = datetime.today().date() - timedelta(days=30)
     max_date = datetime.today().date()
 
+hoje = datetime.today().date()
+segunda = hoje - timedelta(days=hoje.weekday())
+padrao = (segunda, hoje)
+
 date_range = st.sidebar.date_input(
     "Período",
-    value=(min_date, max_date),
+    value=padrao,
     min_value=min_date,
     max_value=max_date,
 )
