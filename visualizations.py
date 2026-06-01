@@ -168,7 +168,7 @@ def render_detail_table(merged_df: pd.DataFrame):
     display.columns = [cols[c] for c in display.columns]
 
     if "Data" in display.columns:
-        display["Data"] = pd.to_datetime(display["Data"]).dt.strftime("%d/%m/%Y %H:%M")
+        display["Data"] = pd.to_datetime(display["Data"], format="mixed").dt.strftime("%d/%m/%Y %H:%M")
 
     st.dataframe(
         display,

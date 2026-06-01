@@ -1,9 +1,6 @@
-import time
 import subprocess
 import logging
 from pathlib import Path
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_DIR = SCRIPT_DIR.parent
@@ -17,47 +14,29 @@ logging.basicConfig(
     format="%(asctime)s - %(message)s",
 )
 
-last_run = 0
-DEBOUNCE = 30
-
-
-class ReportHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        if not event.is_directory and event.src_path.endswith("JUnit_Report.xml"):
-            self.trigger()
-
-    def on_modified(self, event):
-        if not event.is_directory and event.src_path.endswith("JUnit_Report.xml"):
-            self.trigger()
-
-    def trigger(self):
-        global last_run
-        now = time.time()
-        if now - last_run < DEBOUNCE:
-            return
-        last_run = now
-        time.sleep(5)
-        logging.info("Rodando parse_and_send.py...")
-        subprocess.run([str(VENV_PYTHON), str(PARSE_SCRIPT)])
-        logging.info("Concluído.")
-
 
 if __name__ == "__main__":
     if not Path(REPORT_PATH).exists():
-        logging.error(f"Caminho não encontrado: {REPORT_PATH}")
+        msg = f"Caminho nao encontrado: {REPORT_PATH}"
+        logging.error(msg)
+        print(msg)
         exit(1)
 
-    observer = Observer()
-    handler = ReportHandler()
-    observer.schedule(handler, REPORT_PATH, recursive=True)
-    observer.start()
-    logging.info(f"Monitorando {REPORT_PATH}...")
-    print(f"Monitorando {REPORT_PATH}...")
-    print("Pressione Ctrl+C para parar.")
+    logging.info("Iniciando processamento diario dos reports...")
+    print("Processando reports diarios...")
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+    result = subprocess.run([str(VENV_PYTHON), str(PARSE_SCRIPT)], capture_output=True, text=True)
+
+    for line in result.stdout.splitlines():
+        print(line)
+    if result.stderr:
+        for line in result.stderr.splitlines():
+            print(f"STDERR: {line}")
+
+    if result.returncode == 0:
+        logging.info("Processamento diario concluido com sucesso.")
+        print("Concluido.")
+    else:
+        logging.error(f"Processamento falhou (codigo {result.returncode})")
+        print(f"ERRO: codigo {result.returncode}")
+        exit(result.returncode)
