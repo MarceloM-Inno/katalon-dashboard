@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import pandas as pd
 
 st_secrets_valid = True
 try:
@@ -12,7 +13,7 @@ except Exception:
 from config import SUPABASE_URL, SUPABASE_KEY
 from db import (
     load_executions,
-    load_cases,
+    load_cases_by_exec_ids,
     load_status_overrides,
     apply_overrides_to_cases,
     recalc_execution_totals,
@@ -43,18 +44,14 @@ if not projeto:
 @st.cache_data(ttl=60, show_spinner="Carregando dados...")
 def get_data(projeto):
     exec_df = load_executions(projeto)
-    cases_df = load_cases(projeto)
     overrides_df = load_status_overrides()
-    if not overrides_df.empty:
-        cases_df = apply_overrides_to_cases(cases_df, overrides_df)
-        exec_df = recalc_execution_totals(exec_df, cases_df)
-    return exec_df, cases_df
+    return exec_df, overrides_df
 
 
 st.title(f" Dashboard de Testes - {projeto}")
 st.caption(f"Última atualização: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
-exec_df, cases_df = get_data(projeto)
+exec_df, overrides_df = get_data(projeto)
 
 st.sidebar.header("Filtros")
 
@@ -98,8 +95,7 @@ if st.sidebar.button(" Atualizar Agora"):
 
 st.sidebar.divider()
 st.sidebar.caption(
-    f"Total de execuções: {len(exec_df)}\n"
-    f"Total de casos: {len(cases_df)}"
+    f"Total de execuções: {len(exec_df)}"
 )
 
 if exec_df.empty:
@@ -119,10 +115,16 @@ if len(date_range) == 2:
 if selected_suites:
     exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
 
-cases_filtered = cases_df[
-    cases_df["execution_id"].isin(exec_filtered["id"])
-]
-if selected_statuses:
+exec_ids = exec_filtered["id"].tolist()
+if exec_ids:
+    cases_filtered = load_cases_by_exec_ids(exec_ids)
+    if not overrides_df.empty:
+        cases_filtered = apply_overrides_to_cases(cases_filtered, overrides_df)
+        exec_filtered = recalc_execution_totals(exec_filtered, cases_filtered)
+else:
+    cases_filtered = pd.DataFrame()
+
+if selected_statuses and not cases_filtered.empty:
     cases_filtered = cases_filtered[
         cases_filtered["status"].isin(selected_statuses)
     ]

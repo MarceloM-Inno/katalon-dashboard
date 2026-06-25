@@ -13,7 +13,7 @@ except Exception:
 from config import SUPABASE_URL, SUPABASE_KEY
 from db import (
     load_executions,
-    load_cases,
+    load_cases_by_exec_ids,
     load_status_overrides,
     set_status_override,
     delete_status_override_by_test_case,
@@ -39,10 +39,8 @@ STATUS_COLORS = {
 
 
 @st.cache_data(ttl=60, show_spinner="Carregando dados...")
-def get_data(projeto):
-    exec_df = load_executions(projeto)
-    cases_df = load_cases(projeto)
-    return exec_df, cases_df
+def get_execs(projeto):
+    return load_executions(projeto)
 
 
 st.markdown(
@@ -56,9 +54,9 @@ st.caption(
 )
 st.divider()
 
-exec_df, cases_df = get_data(projeto)
+exec_df = get_execs(projeto)
 
-if exec_df.empty or cases_df.empty:
+if exec_df.empty:
     st.warning("Nenhum dado encontrado para o projeto selecionado.")
     st.stop()
 
@@ -125,9 +123,12 @@ if len(date_range) == 2:
 if selected_suites:
     exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
 
-cases_filtered = cases_df[
-    cases_df["execution_id"].isin(exec_filtered["id"])
-].copy()
+exec_ids = exec_filtered["id"].tolist()
+cases_filtered = load_cases_by_exec_ids(exec_ids)
+
+if cases_filtered.empty:
+    st.warning("Nenhum caso de teste encontrado para os filtros selecionados.")
+    st.stop()
 
 if not overrides_df.empty:
     cases_filtered = cases_filtered.merge(

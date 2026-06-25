@@ -36,9 +36,20 @@ def load_executions(projeto: str | None = None) -> pd.DataFrame:
 
 def load_cases(projeto: str | None = None) -> pd.DataFrame:
     client = get_client()
-    query = client.table(TABLE_CASES).select("*").order("test_name").limit(100000)
+    query = client.table(TABLE_CASES).select("*").order("test_name")
     if projeto:
         query = query.eq("project", projeto)
+    data = query.execute()
+    df = pd.DataFrame(data.data)
+    return df
+
+
+def load_cases_by_exec_ids(exec_ids: list[int]) -> pd.DataFrame:
+    if not exec_ids:
+        return pd.DataFrame()
+    client = get_client()
+    query = client.table(TABLE_CASES).select("*").order("test_name")
+    query = query.in_("execution_id", exec_ids)
     data = query.execute()
     df = pd.DataFrame(data.data)
     return df
