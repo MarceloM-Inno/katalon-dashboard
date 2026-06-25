@@ -10,7 +10,13 @@ except Exception:
     st_secrets_valid = False
 
 from config import SUPABASE_URL, SUPABASE_KEY
-from db import load_executions, load_cases
+from db import (
+    load_executions,
+    load_cases,
+    load_status_overrides,
+    apply_overrides_to_cases,
+    recalc_execution_totals,
+)
 from visualizations import (
     render_kpi_cards,
     render_trend_chart,
@@ -38,6 +44,10 @@ if not projeto:
 def get_data(projeto):
     exec_df = load_executions(projeto)
     cases_df = load_cases(projeto)
+    overrides_df = load_status_overrides()
+    if not overrides_df.empty:
+        cases_df = apply_overrides_to_cases(cases_df, overrides_df)
+        exec_df = recalc_execution_totals(exec_df, cases_df)
     return exec_df, cases_df
 
 
@@ -138,6 +148,22 @@ cases_merged = cases_filtered.merge(
     right_on="id",
     how="left",
 )
+overrides_df = load_status_overrides(
+    execution_ids=exec_filtered["id"].tolist() if not exec_filtered.empty else None
+)
+if not overrides_df.empty:
+    cases_merged = cases_merged.merge(
+        overrides_df[["test_case_id", "overridden_status", "reason"]],
+        left_on="id_x",
+        right_on="test_case_id",
+        how="left",
+    )
+    cases_merged["has_override"] = cases_merged["overridden_status"].notna()
+    cases_merged["_override"] = cases_merged["has_override"].apply(
+        lambda x: " ✅" if x else ""
+    )
+else:
+    cases_merged["_override"] = ""
 render_detail_table(cases_merged)
 
 st.caption(

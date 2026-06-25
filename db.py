@@ -7,7 +7,8 @@ from datetime import datetime, date
 from config import (
     SUPABASE_URL, SUPABASE_KEY, TABLE_EXECUTIONS, TABLE_CASES,
     TABLE_MANUAL_REGISTERED, TABLE_MANUAL_SNAPSHOTS,
-    TABLE_MANUAL_HISTORY, TABLE_MANUAL_CASES, TABLE_MANUAL_DEFECTS
+    TABLE_MANUAL_HISTORY, TABLE_MANUAL_CASES, TABLE_MANUAL_DEFECTS,
+    TABLE_OVERRIDES
 )
 
 
@@ -40,6 +41,122 @@ def load_cases(projeto: str | None = None) -> pd.DataFrame:
         query = query.eq("project", projeto)
     data = query.execute()
     df = pd.DataFrame(data.data)
+    return df
+
+
+# ========================================
+# Status Overrides (edição manual de status)
+# ========================================
+
+
+def load_status_overrides(
+    execution_ids: Optional[list[int]] = None,
+    test_case_id: Optional[int] = None,
+) -> pd.DataFrame:
+    client = get_client()
+    query = client.table(TABLE_OVERRIDES).select("*").order("created_at", desc=True)
+    if execution_ids:
+        query = query.in_("execution_id", execution_ids)
+    if test_case_id:
+        query = query.eq("test_case_id", test_case_id)
+    data = query.execute()
+    df = pd.DataFrame(data.data)
+    if not df.empty:
+        for col in ["created_at", "updated_at"]:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], format="mixed")
+    return df
+
+
+def set_status_override(
+    test_case_id: int,
+    execution_id: int,
+    original_status: str,
+    overridden_status: str,
+    reason: Optional[str] = None,
+    created_by: Optional[str] = None,
+) -> bool:
+    client = get_client()
+    now = datetime.utcnow().isoformat()
+    data = {
+        "test_case_id": test_case_id,
+        "execution_id": execution_id,
+        "original_status": original_status,
+        "overridden_status": overridden_status,
+        "updated_at": now,
+    }
+    if reason:
+        data["reason"] = reason
+    if created_by:
+        data["created_by"] = created_by
+    try:
+        existing = client.table(TABLE_OVERRIDES).select("id").eq("test_case_id", test_case_id).execute()
+        if existing.data:
+            result = client.table(TABLE_OVERRIDES).update(data).eq("test_case_id", test_case_id).execute()
+        else:
+            data["created_at"] = now
+            result = client.table(TABLE_OVERRIDES).insert([data]).execute()
+        return len(result.data) > 0
+    except Exception as e:
+        print(f"Erro ao salvar override: {e}")
+        return False
+
+
+def delete_status_override(override_id: int) -> bool:
+    client = get_client()
+    try:
+        result = client.table(TABLE_OVERRIDES).delete().eq("id", override_id).execute()
+        return len(result.data) > 0
+    except Exception as e:
+        print(f"Erro ao deletar override: {e}")
+        return False
+
+
+def delete_status_override_by_test_case(test_case_id: int) -> bool:
+    client = get_client()
+    try:
+        result = client.table(TABLE_OVERRIDES).delete().eq("test_case_id", test_case_id).execute()
+        return True
+    except Exception as e:
+        print(f"Erro ao deletar override por test_case: {e}")
+        return False
+
+
+def apply_overrides_to_cases(
+    cases_df: pd.DataFrame,
+    overrides_df: pd.DataFrame,
+) -> pd.DataFrame:
+    if cases_df.empty or overrides_df.empty:
+        return cases_df
+    df = cases_df.copy()
+    ov = overrides_df[["test_case_id", "overridden_status"]].copy()
+    ov = ov.rename(columns={"overridden_status": "_override_status"})
+    df = df.merge(ov, left_on="id", right_on="test_case_id", how="left")
+    mask = df["_override_status"].notna()
+    df.loc[mask, "status"] = df.loc[mask, "_override_status"]
+    df = df.drop(columns=["_override_status"])
+    return df
+
+
+def recalc_execution_totals(
+    exec_df: pd.DataFrame,
+    cases_with_overrides: pd.DataFrame,
+) -> pd.DataFrame:
+    if exec_df.empty or cases_with_overrides.empty:
+        return exec_df
+    per_exec = (
+        cases_with_overrides.groupby("execution_id")
+        .agg(
+            total_tests=("id", "count"),
+            total_failures=("status", lambda s: (s == "FAILED").sum()),
+            total_errors=("status", lambda s: (s == "ERROR").sum()),
+            total_skipped=("status", lambda s: (s == "SKIPPED").sum()),
+        )
+        .reset_index()
+    )
+    df = exec_df.copy()
+    df = df.drop(columns=["total_tests", "total_failures", "total_errors", "total_skipped"], errors="ignore")
+    df = df.merge(per_exec, left_on="id", right_on="execution_id", how="left")
     return df
 
 

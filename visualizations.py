@@ -160,12 +160,14 @@ def render_detail_table(merged_df: pd.DataFrame):
         "suite_name": "Suite",
         "test_name": "Test Case",
         "status": "Status",
+        "_override": "Override",
         "duration_sec": "Duração (s)",
         "failure_type": "Tipo Falha",
         "failure_message": "Mensagem",
     }
-    display = merged_df[[c for c in cols if c in merged_df.columns]].copy()
-    display.columns = [cols[c] for c in display.columns]
+    available = [c for c in cols if c in merged_df.columns]
+    display = merged_df[available].copy()
+    display.columns = [cols[c] for c in available]
 
     if "Data" in display.columns:
         display["Data"] = pd.to_datetime(display["Data"], format="mixed").dt.strftime("%d/%m/%Y %H:%M")

@@ -21,6 +21,7 @@ TABLE_MANUAL_SNAPSHOTS = "manual_daily_snapshots"
 TABLE_MANUAL_HISTORY = "manual_project_history"
 TABLE_MANUAL_CASES = "manual_test_cases"
 TABLE_MANUAL_DEFECTS = "manual_defects"
+TABLE_OVERRIDES = "test_status_overrides"
 
 import json
 PROJECT_MAP_DEFAULT = '{"Oney Bank": "ONEY", "BNPL": "BNPL"}'
