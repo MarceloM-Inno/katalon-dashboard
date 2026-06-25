@@ -93,6 +93,14 @@ for status in STATUS_OPTIONS:
     if st.sidebar.checkbox(status, value=True, key=f"orig_{status}"):
         selected_statuses.append(status)
 
+st.sidebar.markdown("**Busca**")
+search_text = st.sidebar.text_input(
+    "Nome do teste",
+    placeholder="Digite parte do nome...",
+    label_visibility="collapsed",
+    help="Filtra casos de teste por nome (busca parcial, ignore case)",
+)
+
 st.sidebar.divider()
 show_overrides_only = st.sidebar.checkbox(
     "Mostrar apenas com override",
@@ -139,6 +147,11 @@ if show_overrides_only:
 if selected_statuses:
     cases_filtered = cases_filtered[
         cases_filtered["status"].isin(selected_statuses)
+    ]
+
+if search_text:
+    cases_filtered = cases_filtered[
+        cases_filtered["test_name"].str.contains(search_text, case=False, na=False)
     ]
 
 exec_map = exec_filtered[["id", "suite_name", "execution_date"]].set_index("id")
