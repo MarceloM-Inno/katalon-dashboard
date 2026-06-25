@@ -70,7 +70,8 @@ st.sidebar.header(" Filtros")
 min_date = exec_df["execution_date"].min().date()
 max_date = exec_df["execution_date"].max().date()
 hoje = date.today()
-padrao_inicio = max(hoje - timedelta(days=30), min_date)
+segunda = hoje - timedelta(days=hoje.weekday())
+padrao_inicio = max(segunda, min_date)
 padrao_fim = min(hoje, max_date)
 
 date_range = st.sidebar.date_input(
