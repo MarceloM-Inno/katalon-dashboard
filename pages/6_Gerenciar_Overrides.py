@@ -71,6 +71,8 @@ hoje = date.today()
 segunda = hoje - timedelta(days=hoje.weekday())
 padrao_inicio = max(segunda, min_date)
 padrao_fim = min(hoje, max_date)
+if padrao_inicio > padrao_fim:
+    padrao_inicio = padrao_fim
 
 date_range = st.sidebar.date_input(
     "Período",
