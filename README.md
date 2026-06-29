@@ -1,199 +1,243 @@
-# Katalon Dashboard
+# Dashboard de Testes - Katalon
 
-Dashboard Streamlit para visualização de resultados de testes automatizados do **Katalon Studio**. Os dados são extraídos de relatórios JUnit XML e armazenados no **Supabase** (PostgreSQL).
+Dashboard interativo para visualização de resultados de testes automatizados do **Katalon Studio**, construído com **Streamlit** e **Supabase**.
 
-## URLs
+Suporta múltiplos projetos (ONEY e BNPL), com dados armazenados no mesmo banco e filtrados por projeto.
 
-| Ambiente | URL |
-|----------|-----|
-| **Online** | https://katalon-dashboard-orvytfbxpxpsk2rntjc8ke.streamlit.app/ |
-| **Local** | http://localhost:8501 |
-| **Supabase** | https://supabase.com/dashboard/project/rodqhwzivsnxkfdenirx |
-| **GitHub** | https://github.com/VictorOney/katalon-dashboard |
+---
 
-## Funcionalidades
+## Arquitetura
 
-- KPIs: total de execuções, testes passados/falhos, taxa de sucesso
-- Gráfico de tendência de testes passados por suite
-- Gráfico de falhas ao longo do tempo
-- Distribuição por suite (barras agrupadas com percentuais)
-- Pizza de status (PASSED / FAILED / ERROR / SKIPPED)
-- Tabela detalhada com filtros (período, suites, status)
-- Página "Execuções Diárias" com barras empilhadas por suite
+```
+Pipeline-Report/  (JUnit XML gerado pelo Katalon)
+       ↓
+parse_and_send.py  (lê XMLs e envia via REST API)
+       ↓
+    Supabase  (PostgreSQL: test_executions + test_cases)
+       ↑
+  Streamlit App  (app.py + pages/)
+```
 
-## Stack
-
-| Camada | Tecnologia |
-|--------|------------|
-| Frontend | Streamlit |
-| Gráficos | Plotly |
-| Dados | pandas |
-| Banco | Supabase (PostgreSQL) |
-| Ingestão | Python + requests |
+---
 
 ## Estrutura do Projeto
 
 ```
 katalon-dashboard/
-├── Graficos.py                 # Página principal (carregada por app.py via st.navigation)
-├── config.py                   # Configuração (variáveis de ambiente)
-├── db.py                       # Conexão com Supabase
-├── visualizations.py           # Funções de renderização dos gráficos
-├── schema.sql                  # DDL das tabelas no PostgreSQL
-├── requirements.txt            # Dependências do dashboard
-├── start.bat                   # Atalho para iniciar localmente
-├── .env                        # Credenciais (IGNORADO pelo git)
+├── app.py                    # Landing page + navegação entre páginas
+├── config.py                 # Configurações (SUPABASE_URL, SUPABASE_KEY)
+├── db.py                     # Conexão com Supabase e queries
+├── visualizations.py         # Gráficos com Plotly
+├── schema.sql                # DDL do banco de dados
+├── requirements.txt          # Dependências do dashboard
+├── start.bat                 # Atalho para iniciar o servidor
+├── .env                      # Credenciais (NÃO versionado)
 ├── .gitignore
-│
 ├── pages/
-│   └── 1_Execucoes_Diarias.py  # Página extra: execuções diárias
-│
+│   ├── 2_Inicio.py           # Seleção de projeto (ONEY / BNPL)
+│   ├── 0_Graficos.py         # Dashboard geral com gráficos
+│   └── 1_Execucoes_Diarias.py# Execuções diárias por suite
 ├── scripts/
-│   ├── parse_and_send.py       # Script de ingestão dos XML → Supabase
-│   ├── requirements.txt        # Dependências do script de ingestão
-│   ├── run_scheduled.bat       # Batch para Task Scheduler (ingestão)
-│   ├── watch_reports.py        # FileSystemWatcher (monitora novos XML)
-│   ├── start_watcher.bat       # Atalho para iniciar o watcher manualmente
-│   ├── install_watcher.ps1     # Instala o watcher como tarefa do Windows
-│   ├── processed_state.json    # Controle de arquivos já processados
-│   └── .env.example            # Exemplo de .env
+│   ├── parse_and_send.py     # Parser JUnit XML → Supabase
+│   ├── watch_reports.py      # Watcher em tempo real (opcional)
+│   ├── executar_parse.bat    # Batch para Task Scheduler
+│   ├── agendar_task.ps1      # Script para criar tarefa agendada
+│   ├── install_watcher.ps1   # Script para instalar watcher
+│   ├── start_watcher.bat     # Atalho para iniciar watcher manual
+│   ├── .env.example          # Exemplo de .env para scripts
+│   └── requirements.txt      # Dependências do parser
+├── .streamlit/
+│   └── config.toml           # Configurações do Streamlit
+└── .devcontainer/
+    └── devcontainer.json     # Configuração para GitHub Codespaces
 ```
+
+---
 
 ## Banco de Dados (Supabase)
 
 ### Tabelas
 
-**`test_executions`** — uma linha por execução de suite:
+**`test_executions`** — cada execução de uma suite de testes:
 | Coluna | Tipo | Descrição |
 |--------|------|-----------|
-| id | BIGSERIAL | PK |
-| suite_name | TEXT | Nome da suite |
-| execution_date | TIMESTAMPTZ | Data/hora da execução |
-| total_tests | INTEGER | Total de testes |
-| total_failures | INTEGER | Falhas |
-| total_errors | INTEGER | Erros |
-| total_skipped | INTEGER | Pulados |
-| total_time_sec | DOUBLE | Duração total |
-| hostname | TEXT | Máquina que executou |
-| os | TEXT | Sistema operacional |
-| browser | TEXT | Navegador |
-| katalon_version | TEXT | Versão do Katalon |
-| user_full_name | TEXT | Usuário |
-| project_name | TEXT | Nome do projeto |
+| `id` | `BIGSERIAL PK` | ID único |
+| `suite_name` | `TEXT` | Nome da suite |
+| `execution_date` | `TIMESTAMPTZ` | Data da execução |
+| `project` | `TEXT` | Projeto (ONEY / BNPL) |
+| `total_tests` | `INTEGER` | Total de testes |
+| `total_failures` | `INTEGER` | Total de falhas |
+| `total_errors` | `INTEGER` | Total de erros |
+| `total_skipped` | `INTEGER` | Testes ignorados |
+| `total_time_sec` | `DOUBLE PRECISION` | Duração total |
+| `hostname` | `TEXT` | Máquina que executou |
+| `os`, `browser` | `TEXT` | SO e navegador |
+| `katalon_version` | `TEXT` | Versão do Katalon |
+| `project_name` | `TEXT` | Nome do projeto Katalon |
+| `created_at` | `TIMESTAMPTZ` | Data de inserção |
 
-**`test_cases`** — cada caso de teste dentro de uma execução:
+**`test_cases`** — cada caso de teste individual:
 | Coluna | Tipo | Descrição |
 |--------|------|-----------|
-| id | BIGSERIAL | PK |
-| execution_id | BIGSERIAL | FK → test_executions.id |
-| test_name | TEXT | Nome do caso de teste |
-| duration_sec | DOUBLE | Duração |
-| status | TEXT | PASSED / FAILED / ERROR / SKIPPED |
-| failure_type | TEXT | Tipo da falha |
-| failure_message | TEXT | Mensagem de erro |
+| `id` | `BIGSERIAL PK` | ID único |
+| `execution_id` | `BIGINT FK` | Referência à execução |
+| `project` | `TEXT` | Projeto (ONEY / BNPL) |
+| `test_name` | `TEXT` | Nome do caso de teste |
+| `duration_sec` | `DOUBLE PRECISION` | Duração em segundos |
+| `status` | `TEXT` | PASSED, FAILED, ERROR, SKIPPED |
+| `failure_type` | `TEXT` | Tipo da falha |
+| `failure_message` | `TEXT` | Mensagem de erro |
+| `created_at` | `TIMESTAMPTZ` | Data de inserção |
 
-## Como Rodar Localmente
+### Migração para adicionar projeto em dados existentes
 
-### 1. Pré-requisitos
-- Python 3.11+
-- Git
+```sql
+ALTER TABLE test_executions ADD COLUMN project TEXT NOT NULL DEFAULT '';
+ALTER TABLE test_cases ADD COLUMN project TEXT NOT NULL DEFAULT '';
+UPDATE test_executions SET project = 'ONEY' WHERE project = '';
+UPDATE test_cases SET project = 'ONEY' WHERE project = '';
+```
 
-### 2. Setup
+---
 
-```powershell
-cd E:\Victor\Dashboard\katalon-dashboard
+## Fluxo do Parser (`parse_and_send.py`)
+
+O script percorre a pasta `REPORT_PATH` procurando arquivos `JUnit_Report.xml` e envia os dados ao Supabase.
+
+### Funcionamento
+
+1. Lê `PROJECT_NAME` do `.env` (ONEY ou BNPL)
+2. Busca todos `JUnit_Report.xml` recursivamente em `REPORT_PATH`
+3. Para cada XML:
+   - Extrai dados da suite (nome, data, totais)
+   - Extrai propriedades (OS, browser, versão Katalon)
+   - Extrai casos de teste (nome, status, duração, falha)
+   - Envia via REST API para o Supabase
+4. Controla duplicados via `processed_state.json` e consulta ao banco
+
+### `.env` de exemplo
+
+```ini
+SUPABASE_URL=https://rodqhwzivsnxkfdenirx.supabase.co
+SUPABASE_KEY=sb_publishable__...
+REPORT_PATH=E:\Pipeline-Report
+PROJECT_NAME=ONEY
+```
+
+---
+
+## Dashboard Streamlit
+
+### Páginas
+
+| Página | Descrição |
+|--------|-----------|
+| **Início** | Cards para selecionar ONEY ou BNPL |
+| **Gráficos** | KPIs, tendências por suite, falhas, distribuição por status, tabela detalhada |
+| **Execuções Diárias** | Barras empilhadas (passados/falhas/erros) por suite ao longo do tempo |
+
+### Filtros (sidebar)
+
+- **Período** — date range
+- **Suites** — checkbox por suite
+- **Status** — PASSED / FAILED / ERROR / SKIPPED
+
+---
+
+## Setup
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/VictorOney/katalon-dashboard.git
+cd katalon-dashboard
+```
+
+### 2. Criar arquivo `.env`
+
+```ini
+SUPABASE_URL=https://rodqhwzivsnxkfdenirx.supabase.co
+SUPABASE_KEY=sb_publishable__...
+```
+
+### 3. Instalar dependências
+
+```bash
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Configurar credenciais
+### 4. Criar as tabelas no Supabase
 
-O arquivo `.env` já está configurado com a `service_role key` do Supabase.
-Para novos ambientes, criar `.env` na raiz:
+Acesse o SQL Editor do Supabase e execute o conteúdo de `schema.sql`.
 
+### 5. Executar o parser (enviar dados)
+
+```bash
+cd scripts
+python parse_and_send.py
 ```
-SUPABASE_URL=https://rodqhwzivsnxkfdenirx.supabase.co
-SUPABASE_KEY=sua_chave_service_role
-```
 
-### 4. Executar
+### 6. Iniciar o dashboard
 
-```powershell
+```bash
 streamlit run app.py --server.port 8501
 ```
 
-Ou clique duas vezes em `start.bat`.
+Acesse: http://localhost:8501
 
-Acessar: http://localhost:8501
+---
 
-## Ingestão de Dados
+## VM02 — Projeto BNPL
 
-### Origem
+Na segunda máquina virtual (VM02), configure o parser para enviar dados como `BNPL`:
 
-Os relatórios XML do Katalon ficam em:
-```
-E:\Pipeline-Report\[Suite-Data]\JUnit_Report.xml
-```
+1. Copie `scripts/parse_and_send.py` e `scripts/requirements.txt`
+2. Crie `scripts/.env`:
+   ```ini
+   SUPABASE_URL=https://rodqhwzivsnxkfdenirx.supabase.co
+   SUPABASE_KEY=sb_publishable__...
+   REPORT_PATH=E:\Pipeline-Report
+   PROJECT_NAME=BNPL
+   ```
+3. Instale dependências: `pip install -r scripts\requirements.txt`
+4. Teste: `python scripts\parse_and_send.py`
 
-### Ingestão Manual
+### Agendar tarefa no Windows
 
-```powershell
-.venv\Scripts\Activate.ps1
-python scripts/parse_and_send.py
-```
-
-O script é **idempotente**: verifica duplicados no banco e no `processed_state.json`, processando apenas arquivos novos.
-
-### Automação (FileSystemWatcher)
-
-O watcher monitora `E:\Pipeline-Report` em tempo real e executa a ingestão automaticamente:
-
-- **Tarefa no Windows:** `KatalonDashboardWatcher` (inicia com o sistema)
-- **Log:** `scripts/watcher.log`
-- **Para iniciar manualmente:** `scripts\start_watcher.bat`
-
-#### Fluxo:
-```
-Katalon finaliza teste → cria XML
-       ↓ (segundos)
-watch_reports.py detecta
-       ↓ (5s de tolerância)
-parse_and_send.py → Supabase
-       ↓ (60s cache)
-Dashboard atualiza
-```
-
-## Deploy (Streamlit Cloud)
-
-O dashboard online está hospedado no **Streamlit Community Cloud**, conectado ao repositório GitHub.
-
-O fluxo para atualizar:
+**PowerShell como Administrador:**
 
 ```powershell
-git add -A
-git commit -m "Descrição das alterações"
-git push origin main
+Set-ExecutionPolicy Bypass -Scope Process
+.\scripts\agendar_task.ps1
 ```
 
-O Streamlit Cloud auto-deploya automaticamente (geralmente leva 1-2 minutos).
+Isso cria uma tarefa que executa o parser **todos os dias às 06:00**.
 
-### Credenciais no Online
+---
 
-As credenciais do Supabase no ambiente online estão configuradas em:
+## Opcional — Watcher em Tempo Real
 
-**https://share.streamlit.io/** → katalon-dashboard → Settings → Secrets
+O `watch_reports.py` monitora a pasta de relatórios e executa o parser automaticamente quando novos XMLs são criados.
 
-```toml
-supabase_url = "https://rodqhwzivsnxkfdenirx.supabase.co"
-supabase_key = "service_role_key"
+```bash
+python scripts\watch_reports.py
 ```
 
-## Cores Padrão
+Para instalar como serviço de inicialização:
 
-| Status | Cor |
-|--------|-----|
-| PASSED | `#2ecc71` (verde) |
-| FAILED | `#e74c3c` (vermelho) |
-| ERROR | `#f39c12` (laranja) |
-| SKIPPED | `#95a5a6` (cinza) |
+```powershell
+.\scripts\install_watcher.ps1
+```
+
+---
+
+## Tecnologias
+
+- **Python 3.11+**
+- **Streamlit** — interface web
+- **Plotly** — gráficos interativos
+- **Supabase** — banco PostgreSQL + REST API
+- **Pandas** — manipulação de dados
+- **Watchdog** — monitoramento de arquivos (opcional)
