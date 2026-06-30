@@ -16,7 +16,6 @@ from db import (
     load_cases_by_exec_ids,
     load_status_overrides,
     apply_overrides_to_cases,
-    recalc_execution_totals,
 )
 from visualizations import (
     render_kpi_cards,
@@ -41,17 +40,16 @@ if not projeto:
     st.switch_page("pages/2_Inicio.py")
 
 
-@st.cache_data(ttl=60, show_spinner="Carregando dados...")
-def get_data(projeto):
-    exec_df = load_executions(projeto)
-    overrides_df = load_status_overrides()
-    return exec_df, overrides_df
+@st.cache_data(ttl=60, show_spinner="Carregando execuções...")
+def get_exec_data(projeto):
+    return load_executions(projeto)
 
 
 st.title(f" Dashboard de Testes - {projeto}")
 st.caption(f"Última atualização: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
-exec_df, overrides_df = get_data(projeto)
+exec_df = get_exec_data(projeto)
+overrides_df = load_status_overrides()
 
 st.sidebar.header("Filtros")
 
@@ -116,30 +114,31 @@ if selected_suites:
     exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
 
 exec_ids = exec_filtered["id"].tolist()
+cases_filtered = pd.DataFrame()
+cases_all = pd.DataFrame()
 if exec_ids:
     cases_filtered = load_cases_by_exec_ids(exec_ids)
     if not overrides_df.empty:
         cases_filtered = apply_overrides_to_cases(cases_filtered, overrides_df)
-        exec_filtered = recalc_execution_totals(exec_filtered, cases_filtered)
-else:
-    cases_filtered = pd.DataFrame()
+
+cases_all = cases_filtered.copy() if not cases_filtered.empty else pd.DataFrame()
 
 if selected_statuses and not cases_filtered.empty:
     cases_filtered = cases_filtered[
         cases_filtered["status"].isin(selected_statuses)
     ]
 
-render_kpi_cards(exec_filtered, cases_filtered)
+render_kpi_cards(exec_filtered, cases_all)
 
 col1, col2 = st.columns(2)
 with col1:
-    render_trend_chart(exec_filtered)
+    render_trend_chart(exec_filtered, cases_all)
 with col2:
-    render_failure_trend(exec_filtered)
+    render_failure_trend(exec_filtered, cases_all)
 
 col3, col4 = st.columns(2)
 with col3:
-    render_suite_distribution(exec_filtered)
+    render_suite_distribution(cases_all, exec_filtered)
 with col4:
     render_status_pie(cases_filtered)
 
@@ -150,9 +149,9 @@ cases_merged = cases_filtered.merge(
     right_on="id",
     how="left",
 )
-overrides_df = load_status_overrides(
-    execution_ids=exec_filtered["id"].tolist() if not exec_filtered.empty else None
-)
+if not exec_filtered.empty and not overrides_df.empty:
+    exec_ids_set = set(exec_filtered["id"].tolist())
+    overrides_df = overrides_df[overrides_df["execution_id"].isin(exec_ids_set)].copy()
 if not overrides_df.empty:
     cases_merged = cases_merged.merge(
         overrides_df[["test_case_id", "overridden_status", "reason"]],

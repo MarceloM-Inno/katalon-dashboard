@@ -145,7 +145,7 @@ def apply_overrides_to_cases(
     df = df.merge(ov, left_on="id", right_on="test_case_id", how="left")
     mask = df["_override_status"].notna()
     df.loc[mask, "status"] = df.loc[mask, "_override_status"]
-    df = df.drop(columns=["_override_status"])
+    df = df.drop(columns=["_override_status", "test_case_id"], errors="ignore")
     return df
 
 

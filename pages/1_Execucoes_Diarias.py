@@ -9,7 +9,12 @@ except Exception:
     pass
 
 from config import SUPABASE_URL, SUPABASE_KEY
-from db import load_executions, load_cases
+from db import (
+    load_executions,
+    load_cases_by_exec_ids,
+    load_status_overrides,
+    apply_overrides_to_cases,
+)
 import plotly.graph_objects as go
 from datetime import date, timedelta
 
@@ -23,12 +28,13 @@ if not projeto:
     st.switch_page("pages/2_Inicio.py")
 
 
-@st.cache_data(ttl=60, show_spinner="Carregando dados...")
-def get_data(projeto):
-    return load_executions(projeto), load_cases(projeto)
+@st.cache_data(ttl=60, show_spinner="Carregando execuções...")
+def get_exec_data(projeto):
+    return load_executions(projeto)
 
 
-exec_df, cases_df = get_data(projeto)
+exec_df = get_exec_data(projeto)
+overrides_df = load_status_overrides()
 
 st.title(f" Execuções Diárias - {projeto}")
 
@@ -83,6 +89,23 @@ if len(date_range) == 2:
     ]
 if selected_suites:
     exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
+
+exec_ids = exec_filtered["id"].tolist()
+if exec_ids and not overrides_df.empty:
+    cases_df = load_cases_by_exec_ids(exec_ids)
+    cases_df = apply_overrides_to_cases(cases_df, overrides_df)
+    per_exec = cases_df.groupby("execution_id").agg(
+        total_tests=("id", "count"),
+        total_failures=("status", lambda s: (s == "FAILED").sum()),
+        total_errors=("status", lambda s: (s == "ERROR").sum()),
+    ).reset_index()
+    exec_filtered = exec_filtered.drop(
+        columns=["total_tests", "total_failures", "total_errors", "total_skipped"],
+        errors="ignore",
+    )
+    exec_filtered = exec_filtered.merge(per_exec, left_on="id", right_on="execution_id", how="left")
+    for col in ["total_tests", "total_failures", "total_errors"]:
+        exec_filtered[col] = exec_filtered[col].fillna(0).astype(int)
 
 for suite in selected_suites:
     suite_df = (

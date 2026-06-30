@@ -8,10 +8,10 @@ SUITE_COLORS = px.colors.qualitative.Set2
 
 def render_kpi_cards(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
     total_exec = len(exec_df)
-    total_tests = int(exec_df["total_tests"].sum()) if not exec_df.empty else 0
-    total_fail = int(exec_df["total_failures"].sum()) if not exec_df.empty else 0
-    total_err = int(exec_df["total_errors"].sum()) if not exec_df.empty else 0
-    total_pass = total_tests - total_fail - total_err
+    total_tests = len(cases_df) if not cases_df.empty else 0
+    total_pass = int((cases_df["status"] == "PASSED").sum()) if not cases_df.empty else 0
+    total_fail = int((cases_df["status"] == "FAILED").sum()) if not cases_df.empty else 0
+    total_err = int((cases_df["status"] == "ERROR").sum()) if not cases_df.empty else 0
     pass_rate = round((total_pass / total_tests * 100), 1) if total_tests > 0 else 0
 
     cols = st.columns(5)
@@ -22,12 +22,23 @@ def render_kpi_cards(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
     cols[4].metric("Taxa de Sucesso", f"{pass_rate}%")
 
 
-def render_trend_chart(exec_df: pd.DataFrame):
-    if exec_df.empty:
+def render_trend_chart(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
+    if cases_df.empty:
         st.info("Sem dados para exibir.")
         return
 
-    df = exec_df.copy()
+    per_exec = cases_df.groupby("execution_id").agg(
+        total_tests=("id", "count"),
+        total_failures=("status", lambda s: (s == "FAILED").sum()),
+        total_errors=("status", lambda s: (s == "ERROR").sum()),
+    ).reset_index()
+
+    df = per_exec.merge(
+        exec_df[["id", "suite_name", "execution_date"]],
+        left_on="execution_id",
+        right_on="id",
+        how="left",
+    )
     df["date"] = df["execution_date"].dt.date
     df["pass_count"] = df["total_tests"] - df["total_failures"] - df["total_errors"]
 
@@ -53,11 +64,20 @@ def render_trend_chart(exec_df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_failure_trend(exec_df: pd.DataFrame):
-    if exec_df.empty:
+def render_failure_trend(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
+    if cases_df.empty:
         return
 
-    df = exec_df.copy()
+    per_exec = cases_df.groupby("execution_id").agg(
+        total_failures=("status", lambda s: (s == "FAILED").sum()),
+    ).reset_index()
+
+    df = per_exec.merge(
+        exec_df[["id", "suite_name", "execution_date"]],
+        left_on="execution_id",
+        right_on="id",
+        how="left",
+    )
     df["date"] = df["execution_date"].dt.date
 
     fig = go.Figure()
@@ -81,38 +101,56 @@ def render_failure_trend(exec_df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_suite_distribution(exec_df: pd.DataFrame):
-    if exec_df.empty:
+def render_suite_distribution(cases_df: pd.DataFrame, exec_df: pd.DataFrame):
+    if cases_df.empty or exec_df.empty:
         return
 
     latest = (
         exec_df.sort_values("execution_date")
         .groupby("suite_name")
-        .last()
+        .last()[["id"]]
         .reset_index()
     )
-    latest["pass_count"] = latest["total_tests"] - latest["total_failures"] - latest["total_errors"]
-    latest["total"] = latest["total_tests"]
-    latest["pass_pct"] = (latest["pass_count"] / latest["total"] * 100).round(1)
-    latest["fail_pct"] = (latest["total_failures"] / latest["total"] * 100).round(1)
-    latest["error_pct"] = (latest["total_errors"] / latest["total"] * 100).round(1)
+
+    cases_latest = cases_df[cases_df["execution_id"].isin(latest["id"])]
+    if cases_latest.empty:
+        return
+
+    cases_latest = cases_latest.merge(
+        latest[["id", "suite_name"]],
+        left_on="execution_id",
+        right_on="id",
+        how="left",
+    )
+
+    stats = cases_latest.groupby("suite_name").agg(
+        total_tests=("id_x", "count"),
+        total_failures=("status", lambda s: (s == "FAILED").sum()),
+        total_errors=("status", lambda s: (s == "ERROR").sum()),
+    ).reset_index()
+
+    stats["pass_count"] = stats["total_tests"] - stats["total_failures"] - stats["total_errors"]
+    stats["total"] = stats["total_tests"]
+    stats["pass_pct"] = (stats["pass_count"] / stats["total"] * 100).round(1)
+    stats["fail_pct"] = (stats["total_failures"] / stats["total"] * 100).round(1)
+    stats["error_pct"] = (stats["total_errors"] / stats["total"] * 100).round(1)
 
     fig = go.Figure(data=[
         go.Bar(
-            name="Passados", x=latest["suite_name"], y=latest["pass_count"],
-            text=latest["pass_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
+            name="Passados", x=stats["suite_name"], y=stats["pass_count"],
+            text=stats["pass_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
             marker_color="#2ecc71",
         ),
         go.Bar(
-            name="Falhas", x=latest["suite_name"], y=latest["total_failures"],
-            text=latest["fail_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
+            name="Falhas", x=stats["suite_name"], y=stats["total_failures"],
+            text=stats["fail_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
             marker_color="#e74c3c",
         ),
         go.Bar(
-            name="Erros", x=latest["suite_name"], y=latest["total_errors"],
-            text=latest["error_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
+            name="Erros", x=stats["suite_name"], y=stats["total_errors"],
+            text=stats["error_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
             marker_color="#f39c12",
         ),

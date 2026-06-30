@@ -1,2 +1,2 @@
-# Navigation control
-# showSidebarNavigation is removed so st.navigation() works
+[ui]
+hideSidebarNav = true
