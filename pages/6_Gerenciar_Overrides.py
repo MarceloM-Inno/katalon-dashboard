@@ -10,7 +10,7 @@ try:
 except Exception:
     pass
 
-from config import SUPABASE_URL, SUPABASE_KEY
+from config import SUPABASE_URL, SUPABASE_KEY, normalize_suite_name, build_suite_display_map
 from db import (
     load_executions,
     load_cases_by_exec_ids,
@@ -56,6 +56,9 @@ st.divider()
 
 exec_df = get_execs(projeto)
 
+if not exec_df.empty:
+    exec_df["suite_name_normalized"] = exec_df["suite_name"].apply(normalize_suite_name)
+
 if exec_df.empty:
     st.warning("Nenhum dado encontrado para o projeto selecionado.")
     st.stop()
@@ -84,9 +87,11 @@ date_range = st.sidebar.date_input(
 suites = sorted(exec_df["suite_name"].unique())
 selected_suites = []
 st.sidebar.markdown("**Suites**")
-for suite in suites:
-    if st.sidebar.checkbox(suite, value=True, key=f"suite_{suite}"):
-        selected_suites.append(suite)
+suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
+for norm_name in suite_display_map:
+    display_name = suite_display_map[norm_name]
+    if st.sidebar.checkbox(display_name, value=True, key=f"suite_{norm_name}"):
+        selected_suites.append(norm_name)
 
 st.sidebar.markdown("**Status Original**")
 selected_statuses = []
@@ -123,7 +128,7 @@ if len(date_range) == 2:
         & (exec_filtered["execution_date"].dt.date <= end_d)
     ]
 if selected_suites:
-    exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
+    exec_filtered = exec_filtered[exec_filtered["suite_name_normalized"].isin(selected_suites)]
 
 exec_ids = exec_filtered["id"].tolist()
 cases_filtered = load_cases_by_exec_ids(exec_ids)
