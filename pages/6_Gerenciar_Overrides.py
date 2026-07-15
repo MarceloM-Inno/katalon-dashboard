@@ -58,12 +58,8 @@ st.divider()
 
 if "override_flash" in st.session_state:
     msg, msg_type = st.session_state.pop("override_flash")
-    if msg_type == "success":
-        st.success(msg)
-    elif msg_type == "error":
-        st.error(msg)
-    elif msg_type == "warning":
-        st.warning(msg)
+    icon_map = {"success": "✅", "error": "❌", "warning": "⚠️"}
+    st.toast(msg, icon=icon_map.get(msg_type, ""))
 
 exec_df = get_execs(projeto)
 
