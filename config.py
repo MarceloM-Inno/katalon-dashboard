@@ -26,8 +26,10 @@ TABLE_OVERRIDES = "test_status_overrides"
 
 
 def normalize_suite_name(name: str) -> str:
-    """Remove prefixos numéricos como '01.', '1.', etc. dos nomes de suite."""
-    return re.sub(r'^\d+\.?\s*', '', name).strip()
+    """Remove prefixos numéricos e sufixo (Monday) dos nomes de suite."""
+    name = re.sub(r'^\d+\.?\s*', '', name).strip()
+    name = re.sub(r'\s*\(Monday\)\s*$', '', name).strip()
+    return name
 
 
 def build_suite_display_map(suite_names: list[str]) -> dict[str, str]:
