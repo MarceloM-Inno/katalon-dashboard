@@ -210,7 +210,9 @@ with col_prev:
             st.session_state.page_overrides = page - 1
             st.rerun()
 with col_info:
-    st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>Página **{page}** de **{total_pages}**</p>", unsafe_allow_html=True)
+    start_item = start_idx + 1
+    end_item = min(end_idx, total_items)
+    st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>A mostrar {start_item}-{end_item} de {total_items} testes</p>", unsafe_allow_html=True)
 with col_next:
     if page < total_pages:
         if st.button("Próximo →", use_container_width=True):
@@ -286,7 +288,9 @@ if total_pages > 1:
                 st.session_state.page_overrides = page - 1
                 st.rerun()
     with col_info2:
-        st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>Página **{page}** de **{total_pages}**</p>", unsafe_allow_html=True)
+        start_item = start_idx + 1
+        end_item = min(end_idx, total_items)
+        st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>A mostrar {start_item}-{end_item} de {total_items} testes</p>", unsafe_allow_html=True)
     with col_next2:
         if page < total_pages:
             if st.button("Próximo →", use_container_width=True, key="page_next_bottom"):
