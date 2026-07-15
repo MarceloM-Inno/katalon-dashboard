@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -22,6 +23,24 @@ TABLE_MANUAL_HISTORY = "manual_project_history"
 TABLE_MANUAL_CASES = "manual_test_cases"
 TABLE_MANUAL_DEFECTS = "manual_defects"
 TABLE_OVERRIDES = "test_status_overrides"
+
+
+def normalize_suite_name(name: str) -> str:
+    """Remove prefixos numéricos como '01.', '1.', etc. dos nomes de suite."""
+    return re.sub(r'^\d+\.?\s*', '', name).strip()
+
+
+def build_suite_display_map(suite_names: list[str]) -> dict[str, str]:
+    """Agrupa suites normalizadas e devolve o display name (com prefixo numérico) para cada grupo."""
+    groups: dict[str, list[str]] = {}
+    for name in suite_names:
+        norm = normalize_suite_name(name)
+        groups.setdefault(norm, []).append(name)
+    display_map: dict[str, str] = {}
+    for norm, originals in groups.items():
+        originals_sorted = sorted(originals)
+        display_map[norm] = originals_sorted[0]
+    return display_map
 
 import json
 PROJECT_MAP_DEFAULT = '{"Oney Bank": "ONEY", "BNPL": "BNPL"}'
