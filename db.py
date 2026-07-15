@@ -31,6 +31,7 @@ def load_executions(projeto: str | None = None) -> pd.DataFrame:
     df = pd.DataFrame(data.data)
     if not df.empty and "execution_date" in df.columns:
         df["execution_date"] = pd.to_datetime(df["execution_date"], format="mixed")
+        df["execution_date"] = df["execution_date"].dt.tz_convert("Europe/Lisbon")
     return df
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 
@@ -27,9 +28,16 @@ TABLE_CASES = "test_cases"
 STATE_FILE = Path(__file__).parent / "processed_state.json"
 
 
+LISBON_TZ = timezone(timedelta(hours=1))
+
+
 def parse_timestamp(ts: str) -> str:
     if ts.endswith("Z"):
         ts = ts[:-1] + "+00:00"
+    elif "T" in ts and not any(ts.endswith(off) for off in ("+00:00", "+01:00", "-00:00", "-01:00")):
+        dt = datetime.fromisoformat(ts).replace(tzinfo=LISBON_TZ)
+        dt_utc = dt.astimezone(timezone.utc)
+        return dt_utc.isoformat()
     return ts
 
 
