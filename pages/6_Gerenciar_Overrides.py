@@ -1,4 +1,5 @@
 import os
+import math
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date, timedelta
@@ -30,6 +31,7 @@ if not projeto:
 
 
 STATUS_OPTIONS = ["PASSED", "FAILED", "ERROR", "SKIPPED"]
+ITEMS_PER_PAGE = 20
 STATUS_COLORS = {
     "PASSED": "#2ecc71",
     "FAILED": "#e74c3c",
@@ -188,7 +190,34 @@ st.caption(
     f"{display['has_override'].sum()} com override"
 )
 
-for idx, row in display.iterrows():
+total_items = len(display)
+total_pages = max(1, math.ceil(total_items / ITEMS_PER_PAGE))
+
+if "page_overrides" not in st.session_state:
+    st.session_state.page_overrides = 1
+if st.session_state.page_overrides > total_pages:
+    st.session_state.page_overrides = total_pages
+
+page = st.session_state.page_overrides
+start_idx = (page - 1) * ITEMS_PER_PAGE
+end_idx = start_idx + ITEMS_PER_PAGE
+display_page = display.iloc[start_idx:end_idx]
+
+col_prev, col_info, col_next = st.columns([1, 2, 1])
+with col_prev:
+    if page > 1:
+        if st.button("← Anterior", use_container_width=True):
+            st.session_state.page_overrides = page - 1
+            st.rerun()
+with col_info:
+    st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>Página **{page}** de **{total_pages}**</p>", unsafe_allow_html=True)
+with col_next:
+    if page < total_pages:
+        if st.button("Próximo →", use_container_width=True):
+            st.session_state.page_overrides = page + 1
+            st.rerun()
+
+for idx, row in display_page.iterrows():
     is_overridden = row["has_override"]
     border_color = STATUS_COLORS.get(
         row["overridden_status"] if is_overridden else row["status"], "#ccc"
@@ -239,15 +268,30 @@ for idx, row in display.iterrows():
                 if st.button("✖️", key=f"del_{row['id']}", help="Remover override"):
                     success = delete_status_override_by_test_case(int(row["id"]))
                     if success:
-                        st.success("Override removido!")
+                        st.toast("Override removido!", icon="✅")
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("Erro ao remover override.")
+                        st.toast("Erro ao remover override.", icon="❌")
         with cols[4]:
             pass
 
         st.markdown("---")
+
+if total_pages > 1:
+    col_prev2, col_info2, col_next2 = st.columns([1, 2, 1])
+    with col_prev2:
+        if page > 1:
+            if st.button("← Anterior", use_container_width=True, key="page_prev_bottom"):
+                st.session_state.page_overrides = page - 1
+                st.rerun()
+    with col_info2:
+        st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>Página **{page}** de **{total_pages}**</p>", unsafe_allow_html=True)
+    with col_next2:
+        if page < total_pages:
+            if st.button("Próximo →", use_container_width=True, key="page_next_bottom"):
+                st.session_state.page_overrides = page + 1
+                st.rerun()
 
 
 if "edit_test_case_id" in st.session_state:
@@ -297,10 +341,7 @@ if "edit_test_case_id" in st.session_state:
 
             if salvar:
                 if new_status == orig_status and not current_override:
-                    st.warning(
-                        "O status selecionado é igual ao original. "
-                        "Nenhum override necessário."
-                    )
+                    st.toast("Nenhum override necessário.", icon="⚠️")
                 else:
                     success = set_status_override(
                         test_case_id=tc_id,
@@ -310,7 +351,7 @@ if "edit_test_case_id" in st.session_state:
                         reason=reason if reason else None,
                     )
                     if success:
-                        st.success("✅ Override salvo com sucesso!")
+                        st.toast("Override salvo com sucesso!", icon="✅")
                         del st.session_state.edit_test_case_id
                         del st.session_state.edit_execution_id
                         del st.session_state.edit_test_name
@@ -320,7 +361,7 @@ if "edit_test_case_id" in st.session_state:
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("❌ Erro ao salvar override.")
+                        st.toast("Erro ao salvar override.", icon="❌")
 
             if cancelar:
                 del st.session_state.edit_test_case_id
