@@ -81,7 +81,7 @@ st.sidebar.markdown("**Suites**")
 selected_suites = []
 if not exec_df.empty:
     suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
-    for norm_name in sorted(suite_display_map.keys()):
+    for norm_name in suite_display_map:
         display_name = suite_display_map[norm_name]
         if st.sidebar.checkbox(display_name, value=True):
             selected_suites.append(norm_name)

@@ -31,16 +31,23 @@ def normalize_suite_name(name: str) -> str:
 
 
 def build_suite_display_map(suite_names: list[str]) -> dict[str, str]:
-    """Agrupa suites normalizadas e devolve o display name (com prefixo numérico) para cada grupo."""
+    """Agrupa suites normalizadas e devolve o display name (com prefixo numérico) para cada grupo.
+    Ordena por prefixo numérico; nomes sem prefixo ficam no final."""
     groups: dict[str, list[str]] = {}
     for name in suite_names:
         norm = normalize_suite_name(name)
         groups.setdefault(norm, []).append(name)
-    display_map: dict[str, str] = {}
-    for norm, originals in groups.items():
-        originals_sorted = sorted(originals)
-        display_map[norm] = originals_sorted[0]
-    return display_map
+
+    def _sort_key(item: tuple[str, list[str]]) -> tuple[int, str, str]:
+        norm, originals = item
+        display = sorted(originals)[0]
+        match = re.match(r'^(\d+)', display)
+        if match:
+            return (0, f"{int(match.group(1)):010d}", norm)
+        return (1, "", norm)
+
+    sorted_groups = sorted(groups.items(), key=_sort_key)
+    return {norm: sorted(originals)[0] for norm, originals in sorted_groups}
 
 import json
 PROJECT_MAP_DEFAULT = '{"Oney Bank": "ONEY", "BNPL": "BNPL"}'
