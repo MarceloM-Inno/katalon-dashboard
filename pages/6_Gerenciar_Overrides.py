@@ -56,6 +56,15 @@ st.caption(
 )
 st.divider()
 
+if "override_flash" in st.session_state:
+    msg, msg_type = st.session_state.pop("override_flash")
+    if msg_type == "success":
+        st.success(msg)
+    elif msg_type == "error":
+        st.error(msg)
+    elif msg_type == "warning":
+        st.warning(msg)
+
 exec_df = get_execs(projeto)
 
 if not exec_df.empty:
@@ -222,7 +231,8 @@ def edit_override_dialog(tc_id, exec_id, test_name, orig_status, current_overrid
 
         if salvar:
             if new_status == orig_status and not current_override:
-                st.toast("Nenhum override necessário.", icon="⚠️")
+                st.session_state.override_flash = ("Nenhum override necessário.", "warning")
+                st.rerun()
             else:
                 success = set_status_override(
                     test_case_id=tc_id,
@@ -232,11 +242,12 @@ def edit_override_dialog(tc_id, exec_id, test_name, orig_status, current_overrid
                     reason=reason if reason else None,
                 )
                 if success:
-                    st.toast("Override salvo com sucesso!", icon="✅")
+                    st.session_state.override_flash = ("Override salvo com sucesso!", "success")
                     st.cache_data.clear()
                     st.rerun()
                 else:
-                    st.toast("Erro ao salvar override.", icon="❌")
+                    st.session_state.override_flash = ("Erro ao salvar override.", "error")
+                    st.rerun()
 
         if cancelar:
             st.rerun()
@@ -324,11 +335,12 @@ for idx, row in display_page.iterrows():
                 if st.button("✖️", key=f"del_{row['id']}", help="Remover override"):
                     success = delete_status_override_by_test_case(int(row["id"]))
                     if success:
-                        st.toast("Override removido!", icon="✅")
+                        st.session_state.override_flash = ("Override removido!", "success")
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.toast("Erro ao remover override.", icon="❌")
+                        st.session_state.override_flash = ("Erro ao remover override.", "error")
+                        st.rerun()
         with cols[4]:
             pass
 
