@@ -60,29 +60,29 @@ if exec_df.empty:
     st.stop()
 
 
-st.sidebar.header("Filtros")
-
 min_date = exec_df["execution_date"].min().date()
 max_date = exec_df["execution_date"].max().date()
 
-export_date = st.sidebar.date_input(
-    "Data",
-    value=max_date,
-    min_value=min_date,
-    max_value=max_date,
-)
+col_date, col_suites = st.columns([1, 2])
+with col_date:
+    export_date = st.date_input(
+        "Data",
+        value=max_date,
+        min_value=min_date,
+        max_value=max_date,
+    )
+with col_suites:
+    st.markdown("**Suites**")
+    selected_suites = []
+    suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
+    cols_suites = st.columns(min(len(suite_display_map), 3))
+    for i, norm_name in enumerate(suite_display_map):
+        display_name = suite_display_map[norm_name]
+        with cols_suites[i % len(cols_suites)]:
+            if st.checkbox(display_name, value=False, key=f"export_suite_{norm_name}"):
+                selected_suites.append(norm_name)
 
-st.sidebar.markdown("**Suites**")
-selected_suites = []
-suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
-for norm_name in suite_display_map:
-    display_name = suite_display_map[norm_name]
-    if st.sidebar.checkbox(display_name, value=False, key=f"export_suite_{norm_name}"):
-        selected_suites.append(norm_name)
-
-st.sidebar.divider()
-
-exportar = st.sidebar.button("📥 Exportar CSV", use_container_width=True, type="primary")
+exportar = st.button("📥 Exportar CSV", type="primary")
 
 
 exec_filtered = exec_df.copy()
