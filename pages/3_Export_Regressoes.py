@@ -82,9 +82,6 @@ with col_suites:
             if st.checkbox(display_name, value=False, key=f"export_suite_{norm_name}"):
                 selected_suites.append(norm_name)
 
-exportar = st.button("📥 Exportar CSV", type="primary")
-
-
 exec_filtered = exec_df.copy()
 exec_filtered = exec_filtered[
     exec_filtered["execution_date"].dt.date == export_date
@@ -128,27 +125,21 @@ if not cases_df.empty:
         hide_index=True,
     )
 
-if exportar:
-    if cases_df.empty:
-        st.toast("Nenhum dado para exportar.", icon="⚠️")
-    else:
-        exec_map = exec_filtered[["id", "suite_name"]].set_index("id")
-        export_df = cases_df.copy()
-        export_df["suite"] = export_df["execution_id"].map(exec_map["suite_name"])
-        export_df["identifier"] = export_df["test_name"].apply(extract_identifier)
+    csv_lines = ["Identifier,Status"]
+    for _, row in cases_display.iterrows():
+        csv_lines.append(f"{row['identifier']},{row['status']}")
+    csv_content = "\n".join(csv_lines)
 
-        csv_lines = ["Identifier,Status"]
-        for _, row in export_df.iterrows():
-            csv_lines.append(f"{row['identifier']},{row['status']}")
-        csv_content = "\n".join(csv_lines)
+    file_name = f"DadosRegressãoAutomática-{export_date.strftime('%d/%m')}.csv"
 
-        st.download_button(
-            label="📥 Download CSV",
-            data=csv_content,
-            file_name=f"regressao_{projeto}_{export_date.strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+    st.download_button(
+        label="📥 Exportar CSV",
+        data=csv_content,
+        file_name=file_name,
+        mime="text/csv",
+        type="primary",
+        use_container_width=True,
+    )
 
 
 st.divider()
