@@ -102,9 +102,10 @@ if exec_filtered.empty:
 csv_content = ""
 file_name = f"DadosRegressãoAutomática-{export_date.strftime('%d/%m')}.csv"
 if not cases_df.empty:
-    exec_map_csv = exec_filtered[["id", "suite_name"]].set_index("id")
     export_df = cases_df.copy()
     export_df["identifier"] = export_df["test_name"].apply(extract_identifier)
+    export_df["_sort_key"] = export_df["identifier"].str.extract(r'^([A-Za-z]+)(\d*)', expand=False).apply(lambda x: (x[0], int(x[1]) if x[1] else 0))
+    export_df = export_df.sort_values("_sort_key")
     csv_lines = ["Identifier,Status"]
     for _, row in export_df.iterrows():
         csv_lines.append(f"{row['identifier']},{row['status']}")
