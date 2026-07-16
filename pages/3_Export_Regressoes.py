@@ -114,7 +114,8 @@ if not cases_df.empty:
     export_df = export_df.sort_values("identifier", key=lambda s: s.map(_sort_key))
     csv_lines = ["Identifier,Status"]
     for _, row in export_df.iterrows():
-        csv_lines.append(f"{row['identifier']},{row['status']}")
+        csv_status = "OK" if row["status"] == "PASSED" else "ERROR"
+        csv_lines.append(f"{row['identifier']},{csv_status}")
     csv_content = "\n".join(csv_lines)
 
 if csv_content:
