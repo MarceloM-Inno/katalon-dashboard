@@ -99,6 +99,29 @@ if exec_filtered.empty:
     st.info("Nenhuma execução encontrada para a data e suites selecionadas.")
     st.stop()
 
+csv_content = ""
+file_name = f"DadosRegressãoAutomática-{export_date.strftime('%d/%m')}.csv"
+if not cases_df.empty:
+    exec_map_csv = exec_filtered[["id", "suite_name"]].set_index("id")
+    export_df = cases_df.copy()
+    export_df["identifier"] = export_df["test_name"].apply(extract_identifier)
+    csv_lines = ["Identifier,Status"]
+    for _, row in export_df.iterrows():
+        csv_lines.append(f"{row['identifier']},{row['status']}")
+    csv_content = "\n".join(csv_lines)
+
+if csv_content:
+    st.download_button(
+        label="📥 Exportar CSV",
+        data=csv_content,
+        file_name=file_name,
+        mime="text/csv",
+        type="primary",
+        use_container_width=True,
+    )
+
+st.divider()
+
 st.subheader(" Resultados")
 st.caption(
     f"Data: **{export_date.strftime('%d/%m/%Y')}** | "
@@ -123,22 +146,6 @@ if not cases_df.empty:
         ),
         use_container_width=True,
         hide_index=True,
-    )
-
-    csv_lines = ["Identifier,Status"]
-    for _, row in cases_display.iterrows():
-        csv_lines.append(f"{row['identifier']},{row['status']}")
-    csv_content = "\n".join(csv_lines)
-
-    file_name = f"DadosRegressãoAutomática-{export_date.strftime('%d/%m')}.csv"
-
-    st.download_button(
-        label="📥 Exportar CSV",
-        data=csv_content,
-        file_name=file_name,
-        mime="text/csv",
-        type="primary",
-        use_container_width=True,
     )
 
 
