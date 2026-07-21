@@ -10,7 +10,7 @@ try:
 except Exception:
     st_secrets_valid = False
 
-from config import SUPABASE_URL, SUPABASE_KEY
+from config import SUPABASE_URL, SUPABASE_KEY, normalize_suite_name, build_suite_display_map
 from db import (
     load_executions,
     load_cases_by_exec_ids,
@@ -51,6 +51,9 @@ st.caption(f"Última atualização: {datetime.now().strftime('%d/%m/%Y %H:%M:%S'
 exec_df = get_exec_data(projeto)
 overrides_df = load_status_overrides()
 
+if not exec_df.empty:
+    exec_df["suite_name_normalized"] = exec_df["suite_name"].apply(normalize_suite_name)
+
 st.sidebar.header("Filtros")
 
 if not exec_df.empty:
@@ -77,9 +80,11 @@ date_range = st.sidebar.date_input(
 st.sidebar.markdown("**Suites**")
 selected_suites = []
 if not exec_df.empty:
-    for suite in sorted(exec_df["suite_name"].unique()):
-        if st.sidebar.checkbox(suite, value=True):
-            selected_suites.append(suite)
+    suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
+    for norm_name in suite_display_map:
+        display_name = suite_display_map[norm_name]
+        if st.sidebar.checkbox(display_name, value=True):
+            selected_suites.append(norm_name)
 
 st.sidebar.markdown("**Status**")
 selected_statuses = []
@@ -111,7 +116,7 @@ if len(date_range) == 2:
         & (exec_filtered["execution_date"].dt.date <= end_d)
     ]
 if selected_suites:
-    exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
+    exec_filtered = exec_filtered[exec_filtered["suite_name_normalized"].isin(selected_suites)]
 
 exec_ids = exec_filtered["id"].tolist()
 cases_filtered = pd.DataFrame()

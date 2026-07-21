@@ -8,7 +8,7 @@ try:
 except Exception:
     pass
 
-from config import SUPABASE_URL, SUPABASE_KEY
+from config import SUPABASE_URL, SUPABASE_KEY, normalize_suite_name, build_suite_display_map
 from db import (
     load_executions,
     load_cases_by_exec_ids,
@@ -36,6 +36,9 @@ def get_exec_data(projeto):
 exec_df = get_exec_data(projeto)
 overrides_df = load_status_overrides()
 
+if not exec_df.empty:
+    exec_df["suite_name_normalized"] = exec_df["suite_name"].apply(normalize_suite_name)
+
 st.title(f" Execuções Diárias - {projeto}")
 
 if exec_df.empty:
@@ -61,12 +64,13 @@ date_range = st.sidebar.date_input(
     max_value=max_date,
 )
 
-suites = sorted(exec_df["suite_name"].unique())
 st.sidebar.markdown("**Suites**")
 selected_suites = []
-for suite in suites:
-    if st.sidebar.checkbox(suite, value=True):
-        selected_suites.append(suite)
+suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
+for norm_name in suite_display_map:
+    display_name = suite_display_map[norm_name]
+    if st.sidebar.checkbox(display_name, value=True):
+        selected_suites.append(norm_name)
 
 st.sidebar.divider()
 st.sidebar.markdown("**Status**")
@@ -88,7 +92,7 @@ if len(date_range) == 2:
         & (exec_filtered["execution_date"].dt.date <= end_d)
     ]
 if selected_suites:
-    exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
+    exec_filtered = exec_filtered[exec_filtered["suite_name_normalized"].isin(selected_suites)]
 
 exec_ids = exec_filtered["id"].tolist()
 if exec_ids and not overrides_df.empty:
@@ -107,14 +111,16 @@ if exec_ids and not overrides_df.empty:
     for col in ["total_tests", "total_failures", "total_errors"]:
         exec_filtered[col] = exec_filtered[col].fillna(0).astype(int)
 
-for suite in selected_suites:
+for norm_suite in selected_suites:
     suite_df = (
-        exec_filtered[exec_filtered["suite_name"] == suite]
+        exec_filtered[exec_filtered["suite_name_normalized"] == norm_suite]
         .copy()
         .sort_values("execution_date")
     )
     if suite_df.empty:
         continue
+
+    display_name = suite_display_map.get(norm_suite, norm_suite)
 
     suite_df["date"] = suite_df["execution_date"].dt.date
     suite_df["pass_count"] = (
@@ -157,7 +163,7 @@ for suite in selected_suites:
         ),
     ])
     fig.update_layout(
-        title=suite,
+        title=display_name,
         barmode="stack",
         height=350,
         xaxis_title="Data",

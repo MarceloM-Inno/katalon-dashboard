@@ -34,7 +34,7 @@ def render_trend_chart(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
     ).reset_index()
 
     df = per_exec.merge(
-        exec_df[["id", "suite_name", "execution_date"]],
+        exec_df[["id", "suite_name", "suite_name_normalized", "execution_date"]],
         left_on="execution_id",
         right_on="id",
         how="left",
@@ -42,9 +42,11 @@ def render_trend_chart(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
     df["date"] = df["execution_date"].dt.date
     df["pass_count"] = df["total_tests"] - df["total_failures"] - df["total_errors"]
 
+    suite_col = "suite_name_normalized" if "suite_name_normalized" in df.columns else "suite_name"
+
     fig = go.Figure()
-    for i, suite in enumerate(sorted(df["suite_name"].unique())):
-        suite_df = df[df["suite_name"] == suite].sort_values("date")
+    for i, suite in enumerate(sorted(df[suite_col].unique())):
+        suite_df = df[df[suite_col] == suite].sort_values("date")
         fig.add_trace(go.Scatter(
             x=suite_df["date"],
             y=suite_df["pass_count"],
@@ -73,16 +75,18 @@ def render_failure_trend(exec_df: pd.DataFrame, cases_df: pd.DataFrame):
     ).reset_index()
 
     df = per_exec.merge(
-        exec_df[["id", "suite_name", "execution_date"]],
+        exec_df[["id", "suite_name", "suite_name_normalized", "execution_date"]],
         left_on="execution_id",
         right_on="id",
         how="left",
     )
     df["date"] = df["execution_date"].dt.date
 
+    suite_col = "suite_name_normalized" if "suite_name_normalized" in df.columns else "suite_name"
+
     fig = go.Figure()
-    for i, suite in enumerate(sorted(df["suite_name"].unique())):
-        suite_df = df[df["suite_name"] == suite].sort_values("date")
+    for i, suite in enumerate(sorted(df[suite_col].unique())):
+        suite_df = df[df[suite_col] == suite].sort_values("date")
         fig.add_trace(go.Scatter(
             x=suite_df["date"],
             y=suite_df["total_failures"],
@@ -107,23 +111,26 @@ def render_suite_distribution(cases_df: pd.DataFrame, exec_df: pd.DataFrame):
 
     latest = (
         exec_df.sort_values("execution_date")
-        .groupby("suite_name")
+        .groupby("suite_name_normalized" if "suite_name_normalized" in exec_df.columns else "suite_name")
         .last()[["id"]]
         .reset_index()
     )
+
+    suite_col_norm = "suite_name_normalized" if "suite_name_normalized" in exec_df.columns else "suite_name"
+    suite_col_display = latest.columns[0]
 
     cases_latest = cases_df[cases_df["execution_id"].isin(latest["id"])]
     if cases_latest.empty:
         return
 
     cases_latest = cases_latest.merge(
-        latest[["id", "suite_name"]],
+        latest[["id", suite_col_display]],
         left_on="execution_id",
         right_on="id",
         how="left",
     )
 
-    stats = cases_latest.groupby("suite_name").agg(
+    stats = cases_latest.groupby(suite_col_display).agg(
         total_tests=("id_x", "count"),
         total_failures=("status", lambda s: (s == "FAILED").sum()),
         total_errors=("status", lambda s: (s == "ERROR").sum()),
@@ -137,19 +144,19 @@ def render_suite_distribution(cases_df: pd.DataFrame, exec_df: pd.DataFrame):
 
     fig = go.Figure(data=[
         go.Bar(
-            name="Passados", x=stats["suite_name"], y=stats["pass_count"],
+            name="Passados", x=stats[suite_col_display], y=stats["pass_count"],
             text=stats["pass_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
             marker_color="#2ecc71",
         ),
         go.Bar(
-            name="Falhas", x=stats["suite_name"], y=stats["total_failures"],
+            name="Falhas", x=stats[suite_col_display], y=stats["total_failures"],
             text=stats["fail_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
             marker_color="#e74c3c",
         ),
         go.Bar(
-            name="Erros", x=stats["suite_name"], y=stats["total_errors"],
+            name="Erros", x=stats[suite_col_display], y=stats["total_errors"],
             text=stats["error_pct"].apply(lambda x: f"{x}%" if x > 0 else ""),
             textposition="inside", textfont_color="white",
             marker_color="#f39c12",

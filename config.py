@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -22,6 +23,33 @@ TABLE_MANUAL_HISTORY = "manual_project_history"
 TABLE_MANUAL_CASES = "manual_test_cases"
 TABLE_MANUAL_DEFECTS = "manual_defects"
 TABLE_OVERRIDES = "test_status_overrides"
+
+
+def normalize_suite_name(name: str) -> str:
+    """Remove prefixos numéricos e sufixo (Monday) dos nomes de suite."""
+    name = re.sub(r'^\d+\.?\s*', '', name).strip()
+    name = re.sub(r'\s*\(Monday\)\s*$', '', name).strip()
+    return name
+
+
+def build_suite_display_map(suite_names: list[str]) -> dict[str, str]:
+    """Agrupa suites normalizadas e devolve o display name (com prefixo numérico) para cada grupo.
+    Ordena por prefixo numérico; nomes sem prefixo ficam no final."""
+    groups: dict[str, list[str]] = {}
+    for name in suite_names:
+        norm = normalize_suite_name(name)
+        groups.setdefault(norm, []).append(name)
+
+    def _sort_key(item: tuple[str, list[str]]) -> tuple[int, str, str]:
+        norm, originals = item
+        display = sorted(originals)[0]
+        match = re.match(r'^(\d+)', display)
+        if match:
+            return (0, f"{int(match.group(1)):010d}", norm)
+        return (1, "", norm)
+
+    sorted_groups = sorted(groups.items(), key=_sort_key)
+    return {norm: sorted(originals)[0] for norm, originals in sorted_groups}
 
 import json
 PROJECT_MAP_DEFAULT = '{"Oney Bank": "ONEY", "BNPL": "BNPL"}'

@@ -1,4 +1,5 @@
 import os
+import math
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date, timedelta
@@ -10,7 +11,7 @@ try:
 except Exception:
     pass
 
-from config import SUPABASE_URL, SUPABASE_KEY
+from config import SUPABASE_URL, SUPABASE_KEY, normalize_suite_name, build_suite_display_map
 from db import (
     load_executions,
     load_cases_by_exec_ids,
@@ -30,6 +31,7 @@ if not projeto:
 
 
 STATUS_OPTIONS = ["PASSED", "FAILED", "ERROR", "SKIPPED"]
+ITEMS_PER_PAGE = 20
 STATUS_COLORS = {
     "PASSED": "#2ecc71",
     "FAILED": "#e74c3c",
@@ -54,7 +56,15 @@ st.caption(
 )
 st.divider()
 
+if "override_flash" in st.session_state:
+    msg, msg_type = st.session_state.pop("override_flash")
+    icon_map = {"success": "✅", "error": "❌", "warning": "⚠️"}
+    st.toast(msg, icon=icon_map.get(msg_type, ""))
+
 exec_df = get_execs(projeto)
+
+if not exec_df.empty:
+    exec_df["suite_name_normalized"] = exec_df["suite_name"].apply(normalize_suite_name)
 
 if exec_df.empty:
     st.warning("Nenhum dado encontrado para o projeto selecionado.")
@@ -84,9 +94,11 @@ date_range = st.sidebar.date_input(
 suites = sorted(exec_df["suite_name"].unique())
 selected_suites = []
 st.sidebar.markdown("**Suites**")
-for suite in suites:
-    if st.sidebar.checkbox(suite, value=True, key=f"suite_{suite}"):
-        selected_suites.append(suite)
+suite_display_map = build_suite_display_map(exec_df["suite_name"].unique().tolist())
+for norm_name in suite_display_map:
+    display_name = suite_display_map[norm_name]
+    if st.sidebar.checkbox(display_name, value=True, key=f"suite_{norm_name}"):
+        selected_suites.append(norm_name)
 
 st.sidebar.markdown("**Status Original**")
 selected_statuses = []
@@ -123,7 +135,7 @@ if len(date_range) == 2:
         & (exec_filtered["execution_date"].dt.date <= end_d)
     ]
 if selected_suites:
-    exec_filtered = exec_filtered[exec_filtered["suite_name"].isin(selected_suites)]
+    exec_filtered = exec_filtered[exec_filtered["suite_name_normalized"].isin(selected_suites)]
 
 exec_ids = exec_filtered["id"].tolist()
 cases_filtered = load_cases_by_exec_ids(exec_ids)
@@ -177,13 +189,101 @@ display["status_exibido"] = display.apply(
 
 display = display.sort_values(["data", "suite", "test_name"])
 
+
+@st.dialog("Editar Status do Teste", width="medium", icon="✏️")
+def edit_override_dialog(tc_id, exec_id, test_name, orig_status, current_override, current_reason):
+    st.info(f"**Teste:** {test_name}")
+    st.caption(f"Status original: {orig_status}")
+
+    with st.form("edit_override_form"):
+        new_status = st.selectbox(
+            "Novo Status",
+            STATUS_OPTIONS,
+            index=(
+                STATUS_OPTIONS.index(current_override)
+                if current_override in STATUS_OPTIONS
+                else STATUS_OPTIONS.index(orig_status)
+                if orig_status in STATUS_OPTIONS
+                else 0
+            ),
+        )
+
+        reason = st.text_area(
+            "Motivo (opcional)",
+            value=current_reason,
+            placeholder="Ex: Falso positivo, corrigido em outra build...",
+            height=80,
+        )
+
+        st.divider()
+
+        col_salvar, col_cancelar = st.columns(2)
+
+        with col_salvar:
+            salvar = st.form_submit_button("💾 Salvar", use_container_width=True)
+
+        with col_cancelar:
+            cancelar = st.form_submit_button("❌ Cancelar", use_container_width=True)
+
+        if salvar:
+            if new_status == orig_status and not current_override:
+                st.session_state.override_flash = ("Nenhum override necessário.", "warning")
+                st.rerun()
+            else:
+                success = set_status_override(
+                    test_case_id=tc_id,
+                    execution_id=exec_id,
+                    original_status=orig_status,
+                    overridden_status=new_status,
+                    reason=reason if reason else None,
+                )
+                if success:
+                    st.session_state.override_flash = ("Override salvo com sucesso!", "success")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.session_state.override_flash = ("Erro ao salvar override.", "error")
+                    st.rerun()
+
+        if cancelar:
+            st.rerun()
+
 st.subheader(" Casos de Teste")
 st.caption(
     f"{len(display)} casos encontrados | "
     f"{display['has_override'].sum()} com override"
 )
 
-for idx, row in display.iterrows():
+total_items = len(display)
+total_pages = max(1, math.ceil(total_items / ITEMS_PER_PAGE))
+
+if "page_overrides" not in st.session_state:
+    st.session_state.page_overrides = 1
+if st.session_state.page_overrides > total_pages:
+    st.session_state.page_overrides = total_pages
+
+page = st.session_state.page_overrides
+start_idx = (page - 1) * ITEMS_PER_PAGE
+end_idx = start_idx + ITEMS_PER_PAGE
+display_page = display.iloc[start_idx:end_idx]
+
+col_prev, col_info, col_next = st.columns([1, 2, 1])
+with col_prev:
+    if page > 1:
+        if st.button("← Anterior", use_container_width=True):
+            st.session_state.page_overrides = page - 1
+            st.rerun()
+with col_info:
+    start_item = start_idx + 1
+    end_item = min(end_idx, total_items)
+    st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>A mostrar {start_item}-{end_item} de {total_items} testes</p>", unsafe_allow_html=True)
+with col_next:
+    if page < total_pages:
+        if st.button("Próximo →", use_container_width=True):
+            st.session_state.page_overrides = page + 1
+            st.rerun()
+
+for idx, row in display_page.iterrows():
     is_overridden = row["has_override"]
     border_color = STATUS_COLORS.get(
         row["overridden_status"] if is_overridden else row["status"], "#ccc"
@@ -218,112 +318,45 @@ for idx, row in display.iterrows():
                 st.caption(f" Motivo: {row['reason']}")
         with cols[2]:
             if st.button("✏️", key=f"edit_{row['id']}", help="Editar status"):
-                st.session_state.edit_test_case_id = int(row["id"])
-                st.session_state.edit_execution_id = int(row["execution_id"])
-                st.session_state.edit_test_name = row["test_name"]
-                st.session_state.edit_original_status = row["status"]
-                st.session_state.edit_current_override = (
-                    row["overridden_status"] if is_overridden else ""
+                edit_override_dialog(
+                    tc_id=int(row["id"]),
+                    exec_id=int(row["execution_id"]),
+                    test_name=row["test_name"],
+                    orig_status=row["status"],
+                    current_override=row["overridden_status"] if is_overridden else "",
+                    current_reason=row["reason"] if is_overridden and pd.notna(row["reason"]) else "",
                 )
-                st.session_state.edit_current_reason = (
-                    row["reason"] if is_overridden and pd.notna(row["reason"]) else ""
-                )
-                st.rerun()
         with cols[3]:
             if is_overridden:
                 if st.button("✖️", key=f"del_{row['id']}", help="Remover override"):
                     success = delete_status_override_by_test_case(int(row["id"]))
                     if success:
-                        st.success("Override removido!")
+                        st.session_state.override_flash = ("Override removido!", "success")
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error("Erro ao remover override.")
+                        st.session_state.override_flash = ("Erro ao remover override.", "error")
+                        st.rerun()
         with cols[4]:
             pass
 
         st.markdown("---")
 
-
-if "edit_test_case_id" in st.session_state:
-    tc_id = st.session_state.edit_test_case_id
-    exec_id = st.session_state.edit_execution_id
-    test_name = st.session_state.edit_test_name
-    orig_status = st.session_state.edit_original_status
-    current_override = st.session_state.edit_current_override
-    current_reason = st.session_state.edit_current_reason
-
-    with st.sidebar:
-        st.subheader("✏️ Editar Status")
-        st.divider()
-
-        st.info(f"**Teste:** {test_name}")
-        st.caption(f"Status original: **{orig_status}**")
-
-        with st.form("edit_override_form"):
-            new_status = st.selectbox(
-                "Novo Status",
-                STATUS_OPTIONS,
-                index=(
-                    STATUS_OPTIONS.index(current_override)
-                    if current_override in STATUS_OPTIONS
-                    else STATUS_OPTIONS.index(orig_status)
-                    if orig_status in STATUS_OPTIONS
-                    else 0
-                ),
-            )
-
-            reason = st.text_area(
-                "Motivo (opcional)",
-                value=current_reason,
-                placeholder="Ex: Falso positivo, corrigido em outra build...",
-                height=80,
-            )
-
-            st.divider()
-
-            col_salvar, col_cancelar = st.columns(2)
-
-            with col_salvar:
-                salvar = st.form_submit_button("💾 Salvar", use_container_width=True)
-
-            with col_cancelar:
-                cancelar = st.form_submit_button("❌ Cancelar", use_container_width=True)
-
-            if salvar:
-                if new_status == orig_status and not current_override:
-                    st.warning(
-                        "O status selecionado é igual ao original. "
-                        "Nenhum override necessário."
-                    )
-                else:
-                    success = set_status_override(
-                        test_case_id=tc_id,
-                        execution_id=exec_id,
-                        original_status=orig_status,
-                        overridden_status=new_status,
-                        reason=reason if reason else None,
-                    )
-                    if success:
-                        st.success("✅ Override salvo com sucesso!")
-                        del st.session_state.edit_test_case_id
-                        del st.session_state.edit_execution_id
-                        del st.session_state.edit_test_name
-                        del st.session_state.edit_original_status
-                        del st.session_state.edit_current_override
-                        del st.session_state.edit_current_reason
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("❌ Erro ao salvar override.")
-
-            if cancelar:
-                del st.session_state.edit_test_case_id
-                del st.session_state.edit_execution_id
-                del st.session_state.edit_test_name
-                del st.session_state.edit_original_status
-                del st.session_state.edit_current_override
-                del st.session_state.edit_current_reason
+if total_pages > 1:
+    col_prev2, col_info2, col_next2 = st.columns([1, 2, 1])
+    with col_prev2:
+        if page > 1:
+            if st.button("← Anterior", use_container_width=True, key="page_prev_bottom"):
+                st.session_state.page_overrides = page - 1
+                st.rerun()
+    with col_info2:
+        start_item = start_idx + 1
+        end_item = min(end_idx, total_items)
+        st.markdown(f"<p style='text-align:center;margin-top:0.5rem'>A mostrar {start_item}-{end_item} de {total_items} testes</p>", unsafe_allow_html=True)
+    with col_next2:
+        if page < total_pages:
+            if st.button("Próximo →", use_container_width=True, key="page_next_bottom"):
+                st.session_state.page_overrides = page + 1
                 st.rerun()
 
 
