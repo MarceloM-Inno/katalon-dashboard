@@ -61,7 +61,7 @@ date_range = st.sidebar.date_input(
     "Período",
     value=padrao,
     min_value=min_date,
-    max_value=max_date,
+    max_value=hoje,
 )
 
 st.sidebar.markdown("**Suites**")

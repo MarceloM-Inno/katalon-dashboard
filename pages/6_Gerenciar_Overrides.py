@@ -88,7 +88,7 @@ date_range = st.sidebar.date_input(
     "Período",
     value=(padrao_inicio, padrao_fim),
     min_value=min_date,
-    max_value=max_date,
+    max_value=hoje,
 )
 
 suites = sorted(exec_df["suite_name"].unique())
