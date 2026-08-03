@@ -22,13 +22,26 @@ def get_client():
     return _client
 
 
+def _fetch_paginated(query, chunk_size: int = 1000) -> list[dict]:
+    rows_all: list[dict] = []
+    start = 0
+    while True:
+        data = query.range(start, start + chunk_size - 1).execute().data
+        if not data:
+            break
+        rows_all.extend(data)
+        if len(data) < chunk_size:
+            break
+        start += chunk_size
+    return rows_all
+
+
 def load_executions(projeto: str | None = None) -> pd.DataFrame:
     client = get_client()
-    query = client.table(TABLE_EXECUTIONS).select("*").order("execution_date").limit(100000)
+    query = client.table(TABLE_EXECUTIONS).select("*").order("execution_date")
     if projeto:
         query = query.eq("project", projeto)
-    data = query.execute()
-    df = pd.DataFrame(data.data)
+    df = pd.DataFrame(_fetch_paginated(query))
     if not df.empty and "execution_date" in df.columns:
         df["execution_date"] = pd.to_datetime(df["execution_date"], format="mixed")
         df["execution_date"] = df["execution_date"].dt.tz_convert("Europe/Lisbon")
@@ -40,8 +53,7 @@ def load_cases(projeto: str | None = None) -> pd.DataFrame:
     query = client.table(TABLE_CASES).select("*").order("test_name")
     if projeto:
         query = query.eq("project", projeto)
-    data = query.execute()
-    df = pd.DataFrame(data.data)
+    df = pd.DataFrame(_fetch_paginated(query))
     return df
 
 
@@ -51,8 +63,7 @@ def load_cases_by_exec_ids(exec_ids: list[int]) -> pd.DataFrame:
     client = get_client()
     query = client.table(TABLE_CASES).select("*").order("test_name")
     query = query.in_("execution_id", exec_ids)
-    data = query.execute()
-    df = pd.DataFrame(data.data)
+    df = pd.DataFrame(_fetch_paginated(query))
     return df
 
 
