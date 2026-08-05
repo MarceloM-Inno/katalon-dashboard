@@ -3,6 +3,9 @@
 .streamlit/secrets.toml
 scripts/.env
 scripts/processed_state.json
+scripts/*.log
+scripts/*.tmp
+scripts/*_state.json
 __pycache__/
 *.pyc
 *.pyo
