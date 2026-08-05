@@ -56,11 +56,25 @@ def save_state(state: set):
 def fetch_existing() -> set:
     existing = set()
     url = f"{SUPABASE_URL}/rest/v1/{TABLE_EXECUTIONS}"
-    params = {"select": "suite_name,execution_date"}
-    resp = requests.get(url, headers=HEADERS, params=params)
-    if resp.status_code == 200:
-        for row in resp.json():
+    offset = 0
+    while True:
+        params = {
+            "select": "suite_name,execution_date",
+            "order": "id.asc",
+            "limit": 1000,
+            "offset": offset,
+        }
+        resp = requests.get(url, headers=HEADERS, params=params)
+        if resp.status_code != 200:
+            break
+        rows = resp.json()
+        if not rows:
+            break
+        for row in rows:
             existing.add((row["suite_name"], row["execution_date"]))
+        if len(rows) < 1000:
+            break
+        offset += 1000
     return existing
 
 
