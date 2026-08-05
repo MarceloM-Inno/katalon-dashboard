@@ -15,6 +15,8 @@ from config import SUPABASE_URL, SUPABASE_KEY, normalize_suite_name, build_suite
 from db import (
     load_executions,
     load_cases_by_exec_ids,
+    load_status_overrides,
+    apply_overrides_to_cases,
 )
 
 if not SUPABASE_URL or not SUPABASE_KEY:
@@ -94,6 +96,9 @@ exec_ids = exec_filtered["id"].tolist()
 cases_df = pd.DataFrame()
 if exec_ids:
     cases_df = load_cases_by_exec_ids(exec_ids)
+    overrides_df = load_status_overrides()
+    if not overrides_df.empty:
+        cases_df = apply_overrides_to_cases(cases_df, overrides_df)
 
 if exec_filtered.empty:
     st.info("Nenhuma execução encontrada para a data e suites selecionadas.")
